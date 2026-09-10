@@ -1,2 +1,1 @@
-Better substitiution table impl   https://discord.com/channels/1545189286494605404/1546996958017622067/1547339107682877551
-Be able to export from in-game to databank?  https://discord.com/channels/@me/1546958719508676771/1547394724346732595
+Be able to export from in-game personalization to databank?  https://discord.com/channels/@me/1546958719508676771/1547394724346732595
