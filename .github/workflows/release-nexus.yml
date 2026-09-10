@@ -1,0 +1,95 @@
+name: Release to Nexus Mods
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexus-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Package and upload
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Read release metadata
+        id: release
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import uuid
+          from pathlib import Path
+
+          metadata_files = (
+              Path("src/Character Share/modinfo.json"),
+              Path("src/Character Share/zcom-mod.json"),
+          )
+          versions = {}
+          for metadata_file in metadata_files:
+              if not metadata_file.is_file():
+                  continue
+              with metadata_file.open(encoding="utf-8") as stream:
+                  version = json.load(stream).get("version")
+              if not isinstance(version, str) or not version.strip():
+                  raise SystemExit(f"Missing version in {metadata_file}")
+              versions[metadata_file] = version.strip()
+
+          if not versions:
+              raise SystemExit("Neither modinfo.json nor zcom-mod.json exists")
+          if len(set(versions.values())) != 1:
+              details = ", ".join(f"{path}: {version}" for path, version in versions.items())
+              raise SystemExit(f"Metadata versions do not match: {details}")
+
+          version = next(iter(versions.values()))
+          if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+              raise SystemExit(f"Version must use #.#.# format, got {version!r}")
+
+          changelog_text = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          section = re.search(
+              rf"^## \[{re.escape(version)}\][^\n]*\n(?P<body>.*?)(?=^## \[|\Z)",
+              changelog_text,
+              flags=re.MULTILINE | re.DOTALL,
+          )
+          if section is None or not section.group("body").strip():
+              raise SystemExit(f"CHANGELOG.md has no non-empty [{version}] section")
+          changelog = section.group("body").strip()
+
+          delimiter = f"CHANGELOG_{uuid.uuid4().hex}"
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+              output.write(f"version={version}\n")
+              output.write(f"package_name=Character Share V{version}.zip\n")
+              output.write(f"changelog<<{delimiter}\n{changelog}\n{delimiter}\n")
+          PY
+
+      - name: Package mod
+        shell: bash
+        env:
+          PACKAGE_NAME: ${{ steps.release.outputs.package_name }}
+        run: |
+          mkdir -p dist
+          (cd src && zip -r "../dist/${PACKAGE_NAME}" "Character Share")
+          ln "dist/${PACKAGE_NAME}" "Character Share.zip"
+
+      - name: Upload to Nexus Mods
+        uses: Nexus-Mods/upload-action@c96019556046053aa26044b44396cd38929daf23
+        with:
+          api_key: ${{ secrets.NEXUSMODS_API_KEY }}
+          file_id: ${{ secrets.NEXUSMODS_FILE_ID }}
+          filename: Character Share.zip
+          version: ${{ steps.release.outputs.version }}
+          display_name: Character Share
+          mod_id: "176"
+          primary_mod_manager_download: true
+          update_mod_version: true
+          changelog: ${{ steps.release.outputs.changelog }}
