@@ -1,1 +1,3 @@
 Be able to export from in-game personalization to databank?  https://discord.com/channels/@me/1546958719508676771/1547394724346732595
+Bulk Import / Export 
+ - Bulk Export of All / Active Only?
