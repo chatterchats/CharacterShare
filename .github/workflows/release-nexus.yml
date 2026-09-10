@@ -72,6 +72,71 @@ jobs:
               output.write(f"changelog<<{delimiter}\n{changelog}\n{delimiter}\n")
           PY
 
+      - name: Resolve Nexus IDs
+        id: nexus
+        shell: bash
+        env:
+          NEXUSMODS_API_KEY: ${{ secrets.NEXUSMODS_API_KEY }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from urllib.error import HTTPError
+          from urllib.parse import quote
+          from urllib.request import Request, urlopen
+
+          api_base = "https://api.nexusmods.com/v3"
+          api_key = os.environ["NEXUSMODS_API_KEY"].strip()
+          if not api_key:
+              raise SystemExit("NEXUSMODS_API_KEY is empty")
+
+          def api_get(path):
+              request = Request(
+                  f"{api_base}{path}",
+                  headers={
+                      "apikey": api_key,
+                      "User-Agent": "chatterchats/CharacterShare release workflow",
+                  },
+              )
+              try:
+                  with urlopen(request, timeout=30) as response:
+                      return json.load(response)
+              except HTTPError as error:
+                  detail = error.read().decode("utf-8", errors="replace")
+                  raise SystemExit(
+                      f"Nexus API request failed for {path}: {error.code} {detail}"
+                  ) from error
+
+          mod = api_get("/games/starwarszerocompany/mods/176").get("data", {})
+          mod_id = mod.get("id")
+          if not isinstance(mod_id, str) or not mod_id:
+              raise SystemExit("Nexus API response did not contain the mod's unique ID")
+
+          payload = api_get(f"/mods/{quote(mod_id, safe='')}/files").get("data", {})
+          active_files = [
+              mod_file
+              for mod_file in payload.get("mod_files", [])
+              if mod_file.get("is_active")
+          ]
+          if len(active_files) != 1:
+              names = ", ".join(
+                  str(mod_file.get("name", "<unnamed>")) for mod_file in active_files
+              )
+              raise SystemExit(
+                  "Expected exactly one active Nexus mod file for Character Share, "
+                  f"found {len(active_files)}: {names or '<none>'}"
+              )
+
+          file_id = active_files[0].get("id")
+          if not isinstance(file_id, str) or not file_id:
+              raise SystemExit("Nexus API response did not contain the mod file's unique ID")
+
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+              output.write(f"mod_id={mod_id}\n")
+              output.write(f"file_id={file_id}\n")
+          PY
+
       - name: Package mod
         shell: bash
         env:
@@ -85,11 +150,11 @@ jobs:
         uses: Nexus-Mods/upload-action@c96019556046053aa26044b44396cd38929daf23
         with:
           api_key: ${{ secrets.NEXUSMODS_API_KEY }}
-          file_id: ${{ secrets.NEXUSMODS_FILE_ID }}
+          file_id: ${{ steps.nexus.outputs.file_id }}
           filename: Character Share.zip
           version: ${{ steps.release.outputs.version }}
           display_name: Character Share
-          mod_id: "176"
+          mod_id: ${{ steps.nexus.outputs.mod_id }}
           primary_mod_manager_download: true
           update_mod_version: true
           changelog: ${{ steps.release.outputs.changelog }}
