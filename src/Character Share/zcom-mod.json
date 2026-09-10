@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "community.character-sharer",
   "name": "Character Share",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Chats",
   "description": "Share and import custom characters directly from the Character Databank using compact ZC1 codes.",
   "game": {

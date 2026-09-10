@@ -1,4 +1,4 @@
--- Character Share v1.0.0
+-- Character Share v1.0.1
 --
 -- Stable native Databank import architecture.
 --
@@ -25,7 +25,7 @@
 -- from the UE4SS console with `zcs_debug_hotkeys`.
 
 local MOD_TAG = "[CharacterShare]"
-local VERSION = "1.0.0"
+local VERSION = "1.0.1"
 -- UE4SS supports normal Lua modules. Add this mod's Scripts directory to
 -- package.path using main.lua's own source path so the loader works whether the
 -- mod manager installs the folder as "Character Share" or "Character_Share".
@@ -10395,4 +10395,4 @@ if not preflight_key_ok then
     log("WARNING: import preflight hotkey registration failed: " .. tostring(preflight_key_err))
 end
 
-log("Character Share ready. v1.0.0")
+log("Character Share ready. v1.0.1")
