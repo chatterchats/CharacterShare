@@ -1,0 +1,81 @@
+Character Share v0.7.51 — Import / Error-Handling Audit Codes
+==================================================================
+
+These fixtures target the frozen ZC1 four-table baseline:
+wire revision 1 / codebook revision 1.
+
+Frozen ZC1 dictionary at this build:
+  Palette:    700
+  Outfit:     745
+  Appearance: 503
+  Meta:        64
+  Total:     2,012 assets
+
+Earlier experimental ZC1 codes are intentionally obsolete, even if they once
+used the same temporary revision number.
+
+Do not use missing-asset / unknown-slot cases on an irreplaceable overwrite target.
+
+01_TRUNCATED — Malformed / truncated ZC1
+Expected: Reject before mutation: checksum mismatch - code is corrupt or truncated
+ZC1-Xhs181Pk5VNIGl5bx7XocVR3iXSHmrz5rJG2UkePPPAyeoo3PhoWhR2Y5pETYVkS3hMQgUnEavSdg7qtoHlGo9nDkiMUrn8n5ASlF688amu7AzLIrwcT7gl90OH8rgBprnNCU2XA5h87uDzbEfHEpC5XduKZ9cXNHGnI
+
+02_BASE62_GARBAGE — Valid-looking Base62 garbage
+Expected: Reject before mutation: checksum mismatch - code is corrupt or truncated
+ZC1-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzA1b2C3d4E5f6G7h8J9k0
+
+03_BAD_CRC — Corrupt payload / bad CRC
+Expected: Reject before mutation: checksum mismatch - code is corrupt or truncated
+ZC1-Xhs181Pk5VNIGl5bx7XocVR3iXSHmrz5rJG2UkePPPAyeoo3PhoWhR2Y5pETYVkS3hMQgUnEavSdg7qtoHlGo9nDkiMUrn8n5ASlF688amu7AzLIrwcT7gl90OH8rgBprnNCU2XA5h87uDzbEfHEpC5XduKZ9cXNHGnIs3ZTxt6lNd1EzFlXqljodOG2jgNDTAkuqV0
+
+04_UNSUPPORTED_WIRE — Unsupported internal wire revision
+Expected: CRC-valid; reject before mutation: unsupported ZC1 wire revision
+ZC1-15HFly6eQs3orJgmhAtsaC7Y0DnuDI1DSAmzVNhn0aSTu5bysGyWjSJjt7TQE4qzhf2XYrqL5BWPeeFzGPka9AKmyTtYCWNLtH4rPND3rWD5DveGvq8ZQSIhyYgxbgvpKLARKqxV4vRU8fEfnqJ1Mg4Yd73IJ6zZHtNs3v72SEaRH2NxUyEvWHIlEvdazAiVXdh354Tf
+
+05_UNSUPPORTED_CODEBOOK — Unsupported codebook revision
+Expected: CRC-valid; reject before mutation: ZC1 codebook revision 2 does not match this build's revision 1
+ZC1-Xq06Oh5hLgAK6M7xWmB8BHIMpvUohuCTCDJqjyvdbJcQ0TgaY9FL7m58kHF0Qt5653TyrgGBeSXiHeozi8Qdmn4PnnUXDVMP87XDUd5wPs5mcIOR0tlAws33OV86YVLv4VIcBitg2VRaUFgsEoORRuNZqNBb1rOuC5gIZQ6m7dmG1GR8kiaCX0smYcMfEItDY1hlDOh
+
+06_RAW_ASSET_PRESENT — Raw asset representation that exists locally — Ravin jump pack
+Expected: Should import successfully because the raw PrimaryAssetId exists locally.
+Note: This fixture was originally encoded while the jump-pack asset was outside the compact dictionary. The asset is now present in the frozen Outfit table, but this code intentionally retains its old raw representation to verify that ZC1 raw references remain backward-compatible.
+ZC1-1GbymnyHBCIhfm3AZTVzVQA3ljIqXe8MiFCyAv1I7d1OAy518Icl7tMqid4oWcB7tg80VdKDDlLBTkLTU32GuJbyA5MfuDPzwtqsYLfgwPr4BQrriDMv9wvXfruIJHPbghPktgc9rKjuFgWGiqwNmiu6VN9A332i3aDXrFm5KS26GXn4DlnOAVd60dyr2grwqy2v4nV8CZExkojn5oS4DFJQl0VL2NuFte700ACNihvvT7Fv4ECm0iwaJGrZNQv61spfM0lfl1CefiVbr3UWAp1cSNtZpPrkRXp7iO0OhCCs446sxvRZr9qpTE
+
+07_UNKNOWN_ASSET_MISSING — Raw asset that does NOT exist locally
+Expected: Code is valid. Import should fail during staging/asset resolution before native create confirmation.
+ZC1-5wYIEitDrxqJfSypZDUk153dYzp53kM6vyENZB4PEzldLXG6SUQxhNXPFMqWY2MNo4aGQ9S6yugfKC88JFhjKSTFB6uWYFxpSHkUzKl88klZ1JrLCc1ZTjXzgYoqxHbzqfwXjWLNuHSTdhtjVES4WcTRdKqyGsCZ3ATg9qIz4CtTXlbxWzqGChtee2l0cHzlfs0DE9vH5OoSQ3lu9vgxIp96RuLgn5AByb5xvC9LiyQ7x7W1zPV19dVpDJz1QAvVTsSPNGvQZwW4pqNf2nVkkn6z0p8OruluDH7Y1hDHXIoy7ucF73q1TzkiJYtV9EN
+
+08_UNKNOWN_SLOT — Unknown/future non-nil slot
+Expected: Code is valid and carries 1 extension slot. Import should fail safely because the live draft has no such non-nil slot; native confirmation must not be reached.
+ZC1-1dLKczW3T1EDxVAx1IurtNGlSgiejY9EZaUGsMnPdNk08JfSX4EeAt0cAj0rWNp9bOkkvVDb61GXIfyFGkzlWbQM8u4nxWnRMVf8W2AzLX58gc8tYH2z49Zeoewmr73arx2yyIJuBsDkkM9nKaHyht6MwpTnw5W0nOJM7nLwS3gorVobRKqPyoGqzdh6EmsE6ivmFCgoV9Bqr7ZvdPtMuPS1VQYKk8UDEGf2rZ12nNDD4H8Vlmu0q8q1J8oHjcCcrhzNfZu04boWBNW5lny2JLwi4buG4wRxAFDeXK2KsWIMLkMPxHjVA2Uf10BAY5YFdq
+
+09_ASTROMECH_JUNK_LAST — Astromech with encoded junk last name
+Expected: Should import successfully as first name 'CSAstroJunk'; encoded last 'THIS_SHOULD_BE_IGNORED' must be ignored.
+ZC1-Xhs181Pk5VNIGl5bx7XocVR3iXSHmrz5rJG2UkePPPAyeoo3PhoWhR2Y5pETYVkS3hMQgUnEavSdg7qtoHlGo9nDkiMUrn8n5ASlF688amu7AzLIrwcT7gl90OH8rgBprnNCU2XA5h87uDzbEfHEpC5XduKZ9cXNHGnIs3ZTxt6lNd1EzFlXqljodOG2jgNDTAkuqVE
+
+10_WRONG_PREFIX — Wrong share-code prefix
+Expected at codec level: Reject before mutation: invalid Character Share prefix
+Note: The normal Import dialog extractor may instead report that the dialog contains no ZC1 character code, because a ZC0-prefixed string is intentionally not selected as a ZC1 candidate.
+ZC0-Xhs181Pk5VNIGl5bx7XocVR3iXSHmrz5rJG2UkePPPAyeoo3PhoWhR2Y5pETYVkS3hMQgUnEavSdg7qtoHlGo9nDkiMUrn8n5ASlF688amu7AzLIrwcT7gl90OH8rgBprnNCU2XA5h87uDzbEfHEpC5XduKZ9cXNHGnIs3ZTxt6lNd1EzFlXqljodOG2jgNDTAkuqVE
+
+DUPLICATE-FLOW TESTS
+--------------------
+DUPLICATE → OVERWRITE: Paste a normal already-installed character code and choose OVERWRITE.
+DUPLICATE → RENAME COLLISION: Choose RENAME and enter an already-installed same-type name; it must refuse without mutation.
+
+NOT REPRESENTABLE BY SHARE CODE ALONE
+-------------------------------------
+Native ConfirmNewDatabankCharacter failure, SavePoolCharacter failure, forced post-save verification failure, and forced rollback failure still require test-only fault injection.
+
+VALIDATION AGAINST v0.7.51 CODEC
+--------------------------------
+01: checksum mismatch - code is corrupt or truncated
+02: checksum mismatch - code is corrupt or truncated
+03: checksum mismatch - code is corrupt or truncated
+04: unsupported ZC1 wire revision
+05: ZC1 codebook revision 2 does not match this build's revision 1
+06: valid decode (CSRaw JumpPack)
+07: valid decode (CSMissing Asset)
+08: valid decode (CSUnknown Slot)
+09: valid decode (CSAstroJunk / encoded junk last preserved in wire for importer normalization test)
+10: invalid Character Share prefix
