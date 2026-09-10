@@ -1,6 +1,6 @@
 -- Character Share v1.0.0
 --
--- Pre-release native Databank import architecture.
+-- Stable native Databank import architecture.
 --
 -- Public-facing share format:
 --   ZC1-<Base62>
@@ -8706,7 +8706,8 @@ local function install_share_button(
                 edit
             )
 
-    -- its real structure is:
+    -- The native action row is not padded through the button slots. The
+    -- v0.7.40 probe showed its real structure is:
     --   EDIT -> Spacer -> DELETE -> Spacer -> ACTIVATE
     -- SHARE is appended after ACTIVATE, so copy one of those existing Spacer
     -- widgets before appending SHARE rather than inventing a pixel margin or
@@ -9191,10 +9192,10 @@ local function runtime_databank_master_candidate()
     -- FindFirstOf may observe the runtime master while CommonUI is still
     -- transitioning it into the hierarchy. Keep the attached/visible checks,
     -- but do NOT call CommonActivatableWidget:IsActivated() here. The native
-    -- access violation seen in dev versions happened before the success
+    -- access violation seen in v0.7.38 and v0.7.41 happened before the success
     -- log, inside this bounded entry check; a native AV is not catchable by Lua
     -- pcall. Attached + visible, followed by a second stable observation below,
-    -- is sufficient readiness for non-destructive UI insertion.
+    -- is sufficient readiness for the non-destructive v0.7.36+ UI insertion.
     return find_live_databank_master()
 end
 
@@ -9358,10 +9359,45 @@ local function handle_strategy_submenu_click(button)
         )
     end
 
-    -- Probe v0.2.0 proved that Character Databank is entered through this
-    -- stable CommonUI button family. We do not need to know which dynamic-list
-    -- instance number corresponds to Databank: every submenu click gets a tiny,
-    -- bounded post-navigation check, and only the real Databank can satisfy it.
+    -- v1.0.0 armed the Databank discovery probe after *every* Strategy submenu
+    -- click. On a fresh launch, opening a non-Databank page before the game had
+    -- ever instantiated WBP_CharacterBank_Master_C could make UE4SS fault while
+    -- FindFirstOf inspected the absent/transitional class. Once Databank had
+    -- been visited, Zero Company retained the reusable runtime master and the
+    -- same navigation was safe.
+    --
+    -- WBP_AnimatedSubMenuListButton_C exposes its live ButtonTextBlock. Read
+    -- the label from the clicked, known-live button and only arm discovery for
+    -- the actual Character Databank entry. Unrelated Strategy navigation now
+    -- returns before any Databank UObject lookup occurs.
+    local button_text_block =
+        unwrap_hook_value(
+            select(
+                1,
+                read_property(
+                    button,
+                    "ButtonTextBlock"
+                )
+            )
+        )
+
+    local button_label =
+        string.upper(
+            read_text_box_value(
+                button_text_block
+            )
+        )
+
+    if button_label == ""
+        or not string.find(
+            button_label,
+            "DATABANK",
+            1,
+            true
+        ) then
+        return
+    end
+
     databank_entry_probe_generation =
         databank_entry_probe_generation + 1
 
@@ -9371,7 +9407,7 @@ local function handle_strategy_submenu_click(button)
     databank_entry_probe_candidate_identity = nil
 
     log(
-        "Strategy submenu click detected; starting bounded Character Databank entry check."
+        "Character Databank submenu click detected; starting bounded entry check."
     )
 
     ExecuteWithDelay(150, function()

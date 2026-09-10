@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Prevented a native access violation when opening another Strategy submenu page before Character Databank on a fresh launch.
 
 ## [1.0.0] - 2026-09-10
 
