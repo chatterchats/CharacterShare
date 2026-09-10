@@ -1,4 +1,4 @@
--- Character Share v0.7.51
+-- Character Share v1.0.0
 --
 -- Pre-release native Databank import architecture.
 --
@@ -25,7 +25,7 @@
 -- from the UE4SS console with `zcs_debug_hotkeys`.
 
 local MOD_TAG = "[CharacterShare]"
-local VERSION = "0.7.51"
+local VERSION = "1.0.0"
 -- UE4SS supports normal Lua modules. Add this mod's Scripts directory to
 -- package.path using main.lua's own source path so the loader works whether the
 -- mod manager installs the folder as "Character Share" or "Character_Share".
@@ -7999,10 +7999,7 @@ function CharacterShareLayout.initialize_share_visual(
         return false
     end
 
-    -- v0.7.40-probe established the native Databank contract on both character
-    -- pages: orientation=1, size=0, type=0. v0.7.41 directly manipulated the
-    -- clone's ButtonSwitcher/SelectedButton. That path is unnecessary and is
-    -- deliberately avoided here. Set only the clone's scalar style properties,
+    -- Set only the clone's scalar style properties,
     -- then ask the widget's own parameterless Blueprint ApplyStyle() routine to
     -- resolve its internal visual exactly as the game does.
     local _, apply_err = try_call(function()
@@ -8709,8 +8706,7 @@ local function install_share_button(
                 edit
             )
 
-    -- The native action row is not padded through the button slots. The
-    -- v0.7.40 probe showed its real structure is:
+    -- its real structure is:
     --   EDIT -> Spacer -> DELETE -> Spacer -> ACTIVATE
     -- SHARE is appended after ACTIVATE, so copy one of those existing Spacer
     -- widgets before appending SHARE rather than inventing a pixel margin or
@@ -9195,10 +9191,10 @@ local function runtime_databank_master_candidate()
     -- FindFirstOf may observe the runtime master while CommonUI is still
     -- transitioning it into the hierarchy. Keep the attached/visible checks,
     -- but do NOT call CommonActivatableWidget:IsActivated() here. The native
-    -- access violation seen in v0.7.38 and v0.7.41 happened before the success
+    -- access violation seen in dev versions happened before the success
     -- log, inside this bounded entry check; a native AV is not catchable by Lua
     -- pcall. Attached + visible, followed by a second stable observation below,
-    -- is sufficient readiness for the non-destructive v0.7.36+ UI insertion.
+    -- is sufficient readiness for non-destructive UI insertion.
     return find_live_databank_master()
 end
 
@@ -9636,8 +9632,8 @@ local function handle_databank_button_click(
         -- WBP_BoundActionButton runs additional native work after
         -- CommonButtonBase:HandleButtonClicked returns. Opening the Character
         -- Share modal from inside this hook changes CommonUI focus/layer state
-        -- while that native click is still unwinding; v0.7.43's log reaches
-        -- EXPORT COMPLETE and then the process dies before another Lua line.
+        -- while that native click is still unwinding; dev versions log reached
+        -- EXPORT COMPLETE and then the process died before another Lua line.
         --
         -- Keep the now-correct native-looking SHARE button, but defer the
         -- export/modal work to the next tick so the BoundActionButton click can
@@ -10363,4 +10359,4 @@ if not preflight_key_ok then
     log("WARNING: import preflight hotkey registration failed: " .. tostring(preflight_key_err))
 end
 
-log("Character Share ready. v0.7.51 keeps frozen ZC1 revision 1/1 and release-packages both zcom-mod.json and modinfo.json metadata while keeping development documentation outside the installed mod folder.")
+log("Character Share ready. v1.0.0")

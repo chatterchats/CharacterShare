@@ -2,7 +2,7 @@
 --
 -- ZC1 FROZEN COMPATIBILITY CONTRACT
 -- ---------------------------------
--- Revision 1 is frozen as of Character Share v0.7.49. Its wire schema, tag
+-- Revision 1 is frozen as of Character Share v1.0.0. Its wire schema, tag
 -- order, slot->table mapping, table order, table sizes, and every table-local
 -- asset id are immutable. Do not append, reorder, remove, or repurpose entries
 -- in this file for ZC1. Newly discovered assets remain representable through
@@ -11,8 +11,8 @@
 -- mutating ZC1.
 --
 -- Revision 1 establishes the four-table ZC1 asset dictionary with
--- four slot-implied dictionaries. v0.7.48 merges the original creator sweep
--- with the unlock-all in-game sweep while preserving every pre-v0.7.48 table
+-- four slot-implied dictionaries. v1.0.0 merges the original creator sweep
+-- with the unlock-all in-game sweep while preserving every in-dev table
 -- index and appending newly exposed assets only:
 --   * palette:    700 color/palette assets shared by every color-like slot;
 --   * outfit:     745 outfit/armor wrapper + mesh assets;
@@ -844,7 +844,6 @@ M.TABLES = {
         "CustomizationPartDefinition:CPD_H_SkinTone_Zabrak_10",
         "CustomizationPartDefinition:CPD_H_SkinTone_Zabrak_11",
         "CustomizationPartDefinition:CPD_H_SkinTone_Zabrak_12",
-        -- v0.7.48 unlock-all in-game sweep additions (155); prior revision-1 ids above remain unchanged.
         "CustomizationPartDefinition:CPD_H_SkinTone_Ovissian_05",
         "CustomizationPartDefinition:CPD_H_SkinTone_Ovissian_06",
         "CustomizationPartDefinition:CPD_H_SkinTone_Ovissian_07",
@@ -1395,7 +1394,6 @@ M.TABLES = {
         "CustomizationPartDefinition:CPD_H_Outfit_Wor002B_TORS_L",
         "CustomizationPartDefinition:CPD_H_Outfit_Wor003A_TORS",
         "CustomizationPartDefinition:CPD_H_Outfit_Wor003B_TORS",
-        -- v0.7.48 unlock-all in-game sweep additions (353); prior revision-1 ids above remain unchanged.
         "CustomizationPartDefinition:CPD_H_Outfit_Anakin_ARMS",
         "CustomizationPartDefinition:CPD_H_Outfit_BakerA_ARMS",
         "CustomizationPartDefinition:CPD_H_Outfit_Bsp001A_ARMS",
@@ -2254,7 +2252,6 @@ M.TABLES = {
         "CustomizationPartDefinition:T_Cosmetic_Tattoo_Mirialan_15_OPC",
         "CustomizationPartDefinition:T_Cosmetic_Tattoo_Mirialan_16_OPC",
         "CustomizationPartDefinition:T_Cosmetic_Tattoo_Mirialan_18_OPC",
-        -- v0.7.48 unlock-all in-game sweep additions (1); prior revision-1 ids above remain unchanged.
         "CustomizationPartDefinition:T_Cosmetic_Tattoo_Mirialan_17_OPC",
     },
 
@@ -2314,7 +2311,6 @@ M.TABLES = {
         "CustomizationPartDefinition:CPD_H_Voiceover_Rogue",
         "CustomizationPartDefinition:CPD_H_Voiceover_Specialist",
         "CustomizationPartDefinition:CPD_Astromech_Voiceover_DroidTwerp",
-        -- v0.7.48 unlock-all in-game sweep additions (9); prior revision-1 ids above remain unchanged.
         "CustomizationPartDefinition:CPD_TacticalSpec_Padawan",
         "CustomizationPartDefinition:CPD_TacticalSpec_Warrior",
         "CustomizationPartDefinition:CPD_TalentSpec_TheLostPadawan",

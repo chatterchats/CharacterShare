@@ -1,4 +1,4 @@
-Character Share v0.7.51 — Import / Error-Handling Audit Codes
+Character Share v1.0.0 — Import / Error-Handling Audit Codes
 ==================================================================
 
 These fixtures target the frozen ZC1 four-table baseline:
@@ -67,7 +67,7 @@ NOT REPRESENTABLE BY SHARE CODE ALONE
 -------------------------------------
 Native ConfirmNewDatabankCharacter failure, SavePoolCharacter failure, forced post-save verification failure, and forced rollback failure still require test-only fault injection.
 
-VALIDATION AGAINST v0.7.51 CODEC
+VALIDATION AGAINST v1.0.0 CODEC
 --------------------------------
 01: checksum mismatch - code is corrupt or truncated
 02: checksum mismatch - code is corrupt or truncated
