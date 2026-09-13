@@ -84,16 +84,6 @@ end
 CharacterShareLayout =
     CharacterShareLayout or {}
 
-function CharacterShareLayout.run_after(
-    delay_ms,
-    callback
-)
-    return ExecuteInGameThreadWithDelay(
-        math.max(0, tonumber(delay_ms) or 0),
-        callback
-    )
-end
-
 local function read_property(object, property_name)
     if object == nil then
         return nil, "owner nil"
@@ -383,6 +373,74 @@ local function unwrap_hook_value(value)
     )
 end
 
+function CharacterShareLayout.uobject_is_valid(value)
+    local object =
+        unwrap_hook_value(value)
+
+    if object == nil then
+        return false
+    end
+
+    local valid, valid_err =
+        try_call(function()
+            return object:IsValid()
+        end)
+
+    return valid_err == nil
+        and valid == true
+end
+
+function CharacterShareLayout.popup_context_uobjects_valid(context)
+    if type(context) ~= "table" then
+        return true
+    end
+
+    for _, match in ipairs(context.matches or {}) do
+        if type(match) == "table"
+            and match.vm ~= nil
+            and not CharacterShareLayout
+                .uobject_is_valid(match.vm) then
+            return false
+        end
+    end
+
+    return true
+end
+
+function CharacterShareLayout.run_after(
+    delay_ms,
+    callback,
+    ...
+)
+    local captured_count =
+        select("#", ...)
+
+    local captured_uobjects = {
+        ...,
+    }
+
+    return ExecuteInGameThreadWithDelay(
+        math.max(0, tonumber(delay_ms) or 0),
+        function()
+            for index = 1, captured_count do
+                if not CharacterShareLayout
+                    .uobject_is_valid(
+                        captured_uobjects[index]
+                    ) then
+                    log(
+                        "Skipped delayed action: captured UObject #"
+                            .. tostring(index)
+                            .. " is no longer valid."
+                    )
+                    return
+                end
+            end
+
+            callback()
+        end
+    )
+end
+
 local function load_class(class_path)
     local class_object, class_err = try_call(function()
         return StaticFindObject(class_path)
@@ -609,7 +667,7 @@ local function create_game_entry(
     -- NamedSlot. Reapply after that insertion has caused BP Construct to run.
     CharacterShareLayout.run_after(1, function()
         apply_entry_value()
-    end)
+    end, entry, editable_text)
 
     return entry, editable_text, nil
 end
@@ -869,7 +927,8 @@ local function retire_native_popup(widget, on_retired)
                     if attempts < 10 then
                         CharacterShareLayout.run_after(
                             50,
-                            wait_for_retirement
+                            wait_for_retirement,
+                            widget
                         )
                         return
                     end
@@ -889,14 +948,15 @@ local function retire_native_popup(widget, on_retired)
                             if on_retired ~= nil then
                                 on_retired()
                             end
-                    end)
+                    end, widget)
             end
 
             CharacterShareLayout.run_after(
                 50,
-                wait_for_retirement
+                wait_for_retirement,
+                widget
             )
-    end)
+    end, widget)
 end
 
 local function safe_remove_popup()
@@ -1228,7 +1288,7 @@ local function install_popup_topnav_actions(
                     end
                 end
             end
-    end)
+    end, popup, action_row)
 
     return true, nil
 end
@@ -1711,7 +1771,8 @@ local function schedule_native_dialog_button_polish(
                         attempt + 1
                     )
                 end
-        end
+        end,
+        popup
     )
 end
 
@@ -1927,7 +1988,7 @@ local function show_native_dialog(
                     popup:ActivateWidget()
                 end)
             end
-    end)
+    end, popup)
 
     if not custom_actions_ok then
         schedule_native_dialog_button_polish(
@@ -5395,10 +5456,10 @@ local function wait_for_new_character_to_close(
                 return
             end
 
-        CharacterShareLayout.run_after(100, poll)
+        CharacterShareLayout.run_after(100, poll, databank_vm)
     end
 
-    CharacterShareLayout.run_after(100, poll)
+    CharacterShareLayout.run_after(100, poll, databank_vm)
 end
 
 local function close_active_new_character_before_overwrite(
@@ -6013,7 +6074,8 @@ local function verify_headless_created_character(
                         baseline_identities,
                         attempt + 1
                     )
-                end
+                end,
+                databank_vm
             )
             return
         end
@@ -6214,7 +6276,9 @@ local function wait_for_headless_draft_then_stage(
                             current_count,
                             stable_checks
                         )
-                    end
+                    end,
+                    databank_vm,
+                    new_vm
                 )
 
                 return
@@ -6260,7 +6324,9 @@ local function wait_for_headless_draft_then_stage(
                     previous_slot_count,
                     stable_checks
                 )
-            end
+            end,
+            databank_vm,
+            new_vm
         )
 end
 
@@ -6490,6 +6556,15 @@ local function begin_overwrite_stage(payload, match)
     end
 
     local function begin_direct_saved_vm_overwrite()
+        if not CharacterShareLayout.uobject_is_valid(aux_vm)
+            or not CharacterShareLayout.uobject_is_valid(databank_vm)
+            or not CharacterShareLayout.uobject_is_valid(match.vm) then
+            fail(
+                "Overwrite was cancelled because a captured Databank ViewModel is no longer valid."
+            )
+            return
+        end
+
         log(
             string.format(
                 "NATIVE OVERWRITE START: '%s' -> existing %s '%s'; using the selected saved CharacterVM directly.",
@@ -6859,7 +6934,10 @@ local function begin_overwrite_stage(payload, match)
                                                 fail(
                                                     "SavePoolCharacter returned, but the re-selected saved character did not match the imported payload. The branch attempted to restore the original character."
                                                 )
-                                    end
+                                    end,
+                                    databank_vm,
+                                    match.vm,
+                                    character_vm
                                 )
 
                                 return
@@ -6877,7 +6955,10 @@ local function begin_overwrite_stage(payload, match)
                     if attempt < 30 then
                         CharacterShareLayout.run_after(
                             100,
-                            wait_for_selected_vm
+                            wait_for_selected_vm,
+                            aux_vm,
+                            databank_vm,
+                            match.vm
                         )
                     else
                         fail(
@@ -6888,7 +6969,10 @@ local function begin_overwrite_stage(payload, match)
 
         CharacterShareLayout.run_after(
             50,
-            wait_for_selected_vm
+            wait_for_selected_vm,
+            aux_vm,
+            databank_vm,
+            match.vm
         )
     end
 
@@ -8856,7 +8940,7 @@ local function install_import_button(
                             import_button
                         )
                 end
-        end)
+        end, import_button)
 
         CharacterShareLayout
             .set_import_icon_color(
@@ -9798,7 +9882,7 @@ local function install_databank_ui_for_active_master(
                     )
                 )
             )
-    end)
+    end, master)
 end
 
 local function leave_databank_session(reason)
@@ -10177,6 +10261,16 @@ local function handle_popup_topnav_action(
     -- Give CommonUI one short native-outro window before opening the next
     -- Character Share dialog or entering the game's native Edit flow.
     CharacterShareLayout.run_after(120, function()
+            if not CharacterShareLayout
+                .popup_context_uobjects_valid(
+                    captured_context
+                ) then
+                log(
+                    "Popup TopNav dispatch cancelled: captured character ViewModel is no longer valid."
+                )
+                return
+            end
+
             popup_state.capturedImportCode =
                 captured_import
 
@@ -10824,6 +10918,16 @@ handle_native_dialog_result = function(widget_value, result_value)
 
     retire_native_popup(widget, function()
         CharacterShareLayout.run_after(0, function()
+            if not CharacterShareLayout
+                .popup_context_uobjects_valid(
+                    captured_context
+                ) then
+                log(
+                    "Native dialog dispatch cancelled: captured character ViewModel is no longer valid."
+                )
+                return
+            end
+
             popup_state.capturedImportCode = captured_import
             popup_state.capturedRenameFirst = captured_first
             popup_state.capturedRenameLast = captured_last

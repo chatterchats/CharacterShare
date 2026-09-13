@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Added fail-closed `IsValid()` checks at delayed-action execution boundaries
+  for captured popup widgets, Databank widgets, character ViewModels, import
+  controls, and overwrite context. Stale callbacks now stop before touching
+  released Unreal objects.
 - Migrated deferred UI, popup, import, overwrite, and debug-hotkey work from
   legacy `ExecuteWithDelay` / `ExecuteInGameThread` scheduling to UE4SS's owned
   delayed game-thread action system.
