@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Added reload teardown with a central hook registry retaining both UE4SS hook
+  IDs, cancellation of grouped and ungrouped actions, and optional current-mod
+  delayed-action clearing. Retired callbacks are disabled.
+- Rebind existing debug-key and console dispatchers, reset registration flags,
+  and retire old popup content on the game thread. Reinitialization adopts
+  attached Import/Share controls instead of duplicating buttons and spacers.
+- Resume a known open Databank after same-state reload and add mocked reload
+  and scheduler regression tests.
 - Added owned, cancellable delayed-action groups for Databank entry/install,
   popup setup and retirement, import/create, and overwrite verification.
   Leaving the Databank, replacing an import, closing a popup, or ending a

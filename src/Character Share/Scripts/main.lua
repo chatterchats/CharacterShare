@@ -54,6 +54,11 @@ do
     end
 end
 
+package.loaded["reload_runtime"] = nil
+CharacterShareRuntime = require("reload_runtime").start("CharacterShareRuntime", {
+    clear_all = CharacterShareClearDelayedActionsOnReload ~= false,
+})
+
 local Codec =
     require("codec")
 
@@ -85,11 +90,7 @@ if type(ExecuteInGameThreadWithDelay) ~= "function"
     )
 end
 
-CharacterShareLayout =
-    CharacterShareLayout or {}
-
-CharacterShareLayout.actionGroups =
-    CharacterShareLayout.actionGroups or {}
+CharacterShareLayout = { actionGroups = {}, runtime = CharacterShareRuntime }
 
 local function read_property(object, property_name)
     if object == nil then
@@ -319,6 +320,11 @@ local databank_entry_probe_generation = 0
 local databank_entry_probe_candidate_identity = nil
 local databank_session_active = false
 
+CharacterShareRuntime.on_teardown = function()
+    CharacterShareRuntime.resume = databank_session_active
+        and databank_ui_state.activeMasterIdentity or nil
+end
+
 local native_dialog_result_hook_registered = false
 local ensure_native_dialog_result_hook = nil
 local handle_native_dialog_result = nil
@@ -462,6 +468,7 @@ function CharacterShareLayout.cancel_action_group(
 
             if did_cancel == true then
                 cancelled = cancelled + 1
+                CharacterShareRuntime:finish_action(handle)
             end
         end
     end
@@ -508,6 +515,8 @@ function CharacterShareLayout.schedule_after(
     callback,
     ...
 )
+    local runtime = CharacterShareRuntime
+    if not runtime.alive then return nil end
     local captured_count =
         select("#", ...)
 
@@ -515,11 +524,10 @@ function CharacterShareLayout.schedule_after(
         ...,
     }
 
-    local handle = nil
+    local handle = MakeActionHandle()
     local actions = nil
 
     if group ~= nil then
-        handle = MakeActionHandle()
         actions =
             CharacterShareLayout.actionGroups[group]
                 or {}
@@ -529,6 +537,8 @@ function CharacterShareLayout.schedule_after(
     end
 
     local function invoke()
+        runtime:finish_action(handle)
+        if not runtime.alive then return end
         if actions ~= nil then
             actions[handle] = nil
 
@@ -556,20 +566,13 @@ function CharacterShareLayout.schedule_after(
         callback()
     end
 
-    if handle ~= nil then
-        ExecuteInGameThreadWithDelay(
-            handle,
-            math.max(0, tonumber(delay_ms) or 0),
-            invoke
-        )
-
-        return handle
-    end
-
-    return ExecuteInGameThreadWithDelay(
+    runtime:track_action(handle)
+    ExecuteInGameThreadWithDelay(
+        handle,
         math.max(0, tonumber(delay_ms) or 0),
         invoke
     )
+    return handle
 end
 
 function CharacterShareLayout.run_after(
@@ -602,6 +605,8 @@ end
 CharacterShareLayout.cancel_all_action_groups(
     "mod script reloaded"
 )
+
+CharacterShareLayout.run_after(0, function() CharacterShareRuntime:cleanup_ui() end)
 
 local function load_class(class_path)
     local class_object, class_err = try_call(function()
@@ -998,6 +1003,16 @@ local function close_native_popup()
         end)
     end
 
+    reset_popup_state()
+end
+
+CharacterShareRuntime.ui_cleanup = function()
+    local popup = popup_state.widget
+    popup_state.suppressResult = true
+    if CharacterShareLayout.uobject_is_valid(popup) then
+        detach_character_share_content(popup)
+        pcall(function() popup:OnCloseWindow() end)
+    end
     reset_popup_state()
 end
 
@@ -9018,7 +9033,7 @@ function CharacterShareLayout.register_databank_hover_hooks()
     end
 
     local hover_ok, hover_id = pcall(function()
-        return RegisterHook(
+        return CharacterShareRuntime:register_hook(
             "/Script/CommonUI.CommonButtonBase:BP_OnHovered",
             function(self)
                 CharacterShareLayout
@@ -9031,7 +9046,7 @@ function CharacterShareLayout.register_databank_hover_hooks()
     end)
 
     local unhover_ok, unhover_id = pcall(function()
-        return RegisterHook(
+        return CharacterShareRuntime:register_hook(
             "/Script/CommonUI.CommonButtonBase:BP_OnUnhovered",
             function(self)
                 CharacterShareLayout
@@ -9065,9 +9080,22 @@ local function install_import_button(
     page,
     page_state
 )
-    if page_state.importInstalled then
+    -- Lua state is recreated by reloads while the page WidgetTree can survive.
+    -- Rebind the attached control and its glyph before considering a new clone.
+    local attached = CharacterShareLayout.find_widget(page, "CharacterShare_ImportButton")
+    if CharacterShareLayout.uobject_is_valid(attached)
+        and select(1, try_call(function() return attached:GetParent() end)) ~= nil then
+        local canvas = CharacterShareLayout.find_widget(page, "CharacterShare_ImportGlyphCanvas")
+        if not CharacterShareLayout.uobject_is_valid(canvas) then canvas = nil end
+        register_attached_databank_button(attached, "databank_import", "IMPORT", canvas)
+        CharacterShareLayout.set_clone_label(attached, "")
+        CharacterShareLayout.hide_single_clone_image(attached)
+        page_state.importInstalled = true
+        page_state.importRow = CharacterShareLayout.find_widget(page, "CharacterShare_CreateImportRow")
+        log("Databank IMPORT adopted from existing WidgetTree.")
         return true
     end
+    page_state.importInstalled = false
 
     local create_new =
         select(
@@ -9662,9 +9690,18 @@ local function install_share_button(
     page,
     page_state
 )
-    if page_state.shareInstalled then
+    local attached = CharacterShareLayout.find_widget(page, "CharacterShare_ShareButton")
+    if CharacterShareLayout.uobject_is_valid(attached)
+        and select(1, try_call(function() return attached:GetParent() end)) ~= nil then
+        register_attached_databank_button(attached, "databank_share", "SHARE")
+        CharacterShareLayout.initialize_share_visual(attached)
+        page_state.shareInstalled = true
+        page_state.shareButton = attached
+        page_state.shareSpacer = CharacterShareLayout.find_widget(page, "CharacterShare_ShareSpacer")
+        log("Databank SHARE adopted from existing WidgetTree.")
         return true
     end
+    page_state.shareInstalled = false
 
     local edit =
         select(
@@ -10170,7 +10207,7 @@ function CharacterShareLayout.register_databank_deactivation_hook()
     end
 
     local ok, hook_id = pcall(function()
-        return RegisterHook(
+        return CharacterShareRuntime:register_hook(
             "/Script/CommonUI.CommonActivatableWidget:DeactivateWidget",
             function(context, ...)
                 local widget = unwrap_hook_value(context)
@@ -10799,7 +10836,7 @@ local function register_databank_click_hook()
     end
 
     local hook_ok, hook_err = pcall(function()
-        RegisterHook(
+        CharacterShareRuntime:register_hook(
             "/Script/CommonUI.CommonButtonBase:HandleButtonClicked",
             function(self)
                 handle_databank_button_click(self)
@@ -11290,7 +11327,7 @@ end
 
 local function register_debug_hotkey_console_command()
     local ok, err = pcall(function()
-        RegisterConsoleCommandHandler(
+        CharacterShareRuntime:register_console(
             "zcs_debug_hotkeys",
             function(full_command, _, output_device)
                 local argument =
@@ -11373,7 +11410,7 @@ ensure_native_dialog_result_hook = function(quiet_if_unavailable)
     end
 
     local hook_ok, hook_err = pcall(function()
-        RegisterHook(
+        CharacterShareRuntime:register_hook(
             "/Game/Game/UI/Common/WBP_GenericPopupMessage."
                 .. "WBP_GenericPopupMessage_C:BP_OnHideDialog",
             function(self, result)
@@ -11417,8 +11454,21 @@ register_databank_click_hook()
 CharacterShareLayout.register_databank_hover_hooks()
 CharacterShareLayout.register_databank_deactivation_hook()
 
+-- Only probe on same-state reload when the previous instance knew a live
+-- Databank master. A cold start still waits for the native submenu click.
+if CharacterShareRuntime.resume ~= nil then
+    CharacterShareLayout.run_group_after("databank_entry_install", 1, function()
+        local master = runtime_databank_master_candidate()
+        if CharacterShareLayout.uobject_is_valid(master)
+            and databank_widget_identity(master) == CharacterShareRuntime.resume then
+            begin_databank_session(master)
+        end
+        CharacterShareRuntime.resume = nil
+    end)
+end
+
 local json_export_key_ok, json_export_key_err = pcall(function()
-    RegisterKeyBind(Key.F7, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
+    CharacterShareRuntime:register_keybind(Key.F7, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         if not debug_hotkeys_enabled then
             return
         end
@@ -11437,7 +11487,7 @@ if not json_export_key_ok then
 end
 
 local export_key_ok, export_key_err = pcall(function()
-    RegisterKeyBind(Key.F8, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
+    CharacterShareRuntime:register_keybind(Key.F8, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         if not debug_hotkeys_enabled then
             return
         end
@@ -11453,7 +11503,7 @@ if not export_key_ok then
 end
 
 local preflight_key_ok, preflight_key_err = pcall(function()
-    RegisterKeyBind(Key.F9, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
+    CharacterShareRuntime:register_keybind(Key.F9, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
         if not debug_hotkeys_enabled then
             return
         end

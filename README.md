@@ -21,7 +21,17 @@ It lets players exchange custom characters with compact `ZC1-...` share codes wi
 - **STAR WARS Zero Company**
 - **UE4SS** with the delayed game-thread action API
   (`ExecuteInGameThreadWithDelay`, `MakeActionHandle`, `CancelDelayedAction`,
-  `IsValidDelayedActionHandle`, and `IsDelayedActionActive`)
+  `IsValidDelayedActionHandle`, `IsDelayedActionActive`, and `UnregisterHook`)
+
+Hot reload retains both hook IDs and cancels owned actions during teardown.
+When available, `ClearAllDelayedActions()` also clears this mod's leftover
+actions at startup; set `CharacterShareClearDelayedActionsOnReload = false`
+before reloading to disable that optional sweep. Tracked-handle cancellation
+still runs. Existing Import/Share controls are adopted on reinitialization.
+A same-state reload resumes a previously known open Databank; after a full Lua
+state restart, reopen the Databank through its menu to rebind the controls.
+Restart the game once when upgrading from versions that did not retain hook
+IDs; those older registrations cannot be recovered by the new registry.
 
 Character Share has been tested on the Steam release with these game builds:
 

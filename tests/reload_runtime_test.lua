@@ -1,0 +1,111 @@
+-- Run from repository root: luajit tests/reload_runtime_test.lua "<Scripts directory>"
+local scripts = assert(arg[1], "pass the mod Scripts directory")
+local Runtime = assert(loadfile(scripts .. "/reload_runtime.lua"))()
+local hooks, cancelled, keys, consoles = {}, {}, {}, {}
+local clear_count, next_id = 0, 0
+local fail_unregister = false
+function RegisterHook(path, pre, post)
+    next_id = next_id + 2
+    hooks[path] = { pre_id = next_id - 1, post_id = next_id, pre = pre, post = post }
+    return next_id - 1, next_id
+end
+function UnregisterHook(path, pre_id, post_id)
+    if fail_unregister then error("mock unregistration failure") end
+    local hook = assert(hooks[path])
+    assert(hook.pre_id == pre_id and hook.post_id == post_id, "both IDs must match")
+    hooks[path] = nil
+end
+function CancelDelayedAction(handle) cancelled[handle] = true; return true end
+function ClearAllDelayedActions() clear_count = clear_count + 1; return 0 end
+function RegisterKeyBind(key, modifiers, callback)
+    assert(keys[key] == nil, "keybind duplicated")
+    keys[key] = callback
+end
+function RegisterConsoleCommandHandler(name, callback)
+    assert(consoles[name] == nil, "console command duplicated")
+    consoles[name] = callback
+end
+
+local first = Runtime.start("TestRuntime", { clear_all = false })
+local calls, cleaned = 0, 0
+local pre, post = first:register_hook("/Script/Test:Event", function() calls = calls + 1 end)
+local again_pre, again_post = first:register_hook("/Script/Test:Event", function() error("duplicate") end)
+assert(pre == again_pre and post == again_post)
+local stale = hooks["/Script/Test:Event"].pre
+stale()
+assert(calls == 1)
+first:register_keybind(7, {}, function() calls = calls + 10 end)
+first:register_console("test", function() return "old" end)
+first:track_action(10)
+first:track_action(11)
+first:finish_action(11)
+first.ui_cleanup = function() cleaned = cleaned + 1 end
+
+local second = Runtime.start("TestRuntime", { clear_all = false })
+assert(not first.alive and second.alive)
+assert(hooks["/Script/Test:Event"] == nil and cancelled[10] and not cancelled[11])
+assert(cleaned == 0, "UI cleanup must wait for game-thread execution")
+second:cleanup_ui()
+second:cleanup_ui()
+assert(cleaned == 1)
+stale()
+keys[7]()
+assert(calls == 1, "callbacks from a retired runtime must be inert")
+second:register_keybind(7, {}, function() calls = calls + 100 end)
+second:register_console("test", function() return "new" end)
+keys[7]()
+assert(calls == 101 and consoles.test() == "new")
+assert(clear_count == 0, "optional blanket cleanup must respect configuration")
+
+second:register_hook("/Script/Test:Retry", function() end)
+fail_unregister = true
+local ok = pcall(Runtime.start, "TestRuntime")
+assert(not ok and not second.alive and second.hooks["/Script/Test:Retry"])
+fail_unregister = false
+local third = Runtime.start("TestRuntime")
+assert(third.alive and hooks["/Script/Test:Retry"] == nil and clear_count == 1)
+
+-- Exercise the actual production scheduler with a mock engine queue.
+local file = assert(io.open(scripts .. "/main.lua", "r"))
+local main = file:read("*a")
+file:close()
+local name, runtime_key, start_marker, end_marker
+if main:find("EnhancedDatabankActions.schedule_after", 1, true) then
+    name, runtime_key = "EnhancedDatabankActions", "EnhancedDatabankRuntime"
+    start_marker = "function EnhancedDatabankActions.schedule_after"
+    end_marker = "local function run_on_game_thread_after"
+else
+    name, runtime_key = "CharacterShareLayout", "CharacterShareRuntime"
+    start_marker = "function CharacterShareLayout.schedule_after"
+    end_marker = "function CharacterShareLayout.run_after"
+end
+local start_pos = assert(main:find(start_marker, 1, true))
+local end_pos = assert(main:find(end_marker, start_pos, true))
+local queue = {}
+local env = setmetatable({
+    PREFIX = "[test]", log = function() end,
+    uobject_is_valid = function(value) return value ~= nil and value.valid == true end,
+    MakeActionHandle = function() next_id = next_id + 1; return next_id end,
+    ExecuteInGameThreadWithDelay = function(handle, delay, callback)
+        assert(type(handle) == "number" and type(delay) == "number")
+        queue[handle] = callback
+    end,
+}, { __index = _G })
+env[name] = { groups = {}, actionGroups = {}, uobject_is_valid = env.uobject_is_valid }
+env[runtime_key] = third
+local chunk = assert(loadstring(main:sub(start_pos, end_pos - 1)))
+setfenv(chunk, env)()
+local schedule = env[name].schedule_after
+local fired = 0
+local handle = schedule("session", 1, function() fired = fired + 1 end, { valid = true })
+assert(third.actions[handle])
+queue[handle]()
+assert(fired == 1 and third.actions[handle] == nil)
+local invalid = schedule(nil, 1, function() error("invalid capture executed") end, nil)
+queue[invalid]()
+assert(third.actions[invalid] == nil)
+local pending = schedule(nil, 1, function() error("retired callback executed") end)
+third:teardown("test")
+queue[pending]() -- Simulate a callback already dispatched when cancellation ran.
+assert(cancelled[pending])
+print("reload runtime and scheduler tests passed")
