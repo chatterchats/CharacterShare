@@ -1,4 +1,4 @@
--- Character Share v1.0.1
+-- Character Share v1.0.2
 --
 -- Stable native Databank import architecture.
 --
@@ -25,7 +25,7 @@
 -- from the UE4SS console with `zcs_debug_hotkeys`.
 
 local MOD_TAG = "[CharacterShare]"
-local VERSION = "1.0.1"
+local VERSION = "1.0.2"
 -- UE4SS supports normal Lua modules. Add this mod's Scripts directory to
 -- package.path using main.lua's own source path so the loader works whether the
 -- mod manager installs the folder as "Character Share" or "Character_Share".
@@ -7872,6 +7872,51 @@ function CharacterShareLayout.collect_widget_tree(
     return widgets
 end
 
+function CharacterShareLayout.find_widget(
+    user_widget,
+    needle
+)
+    needle = tostring(needle or "")
+
+    if needle == "" then
+        return nil
+    end
+
+    for _, widget in ipairs(
+        CharacterShareLayout
+            .collect_widget_tree(
+                user_widget
+            )
+    ) do
+        local identity =
+            databank_widget_identity(
+                widget
+            )
+
+        local class_name =
+            dialog_widget_class_name(
+                widget
+            )
+
+        if string.find(
+            tostring(identity or ""),
+            needle,
+            1,
+            true
+        ) ~= nil
+            or string.find(
+                tostring(class_name or ""),
+                needle,
+                1,
+                true
+            ) ~= nil then
+            return widget
+        end
+    end
+
+    return nil
+end
+
 function CharacterShareLayout.set_clone_label(
     button,
     label
@@ -7946,6 +7991,55 @@ function CharacterShareLayout.set_clone_label(
     return changed > 0
 end
 
+function CharacterShareLayout.image_dimensions(
+    widget
+)
+    if widget == nil then
+        return 0.0,
+            0.0
+    end
+
+    pcall(function()
+        widget:ForceLayoutPrepass()
+    end)
+
+    local width = nil
+    local height = nil
+
+    pcall(function()
+        local geometry =
+            widget:GetCachedGeometry()
+
+        local size =
+            geometry ~= nil
+                and geometry:GetLocalSize()
+                or nil
+
+        if size ~= nil then
+            width = tonumber(size.X)
+            height = tonumber(size.Y)
+        end
+    end)
+
+    if width == nil
+        or height == nil
+        or width <= 0.5
+        or height <= 0.5 then
+        pcall(function()
+            local size =
+                widget:GetDesiredSize()
+
+            if size ~= nil then
+                width = tonumber(size.X)
+                height = tonumber(size.Y)
+            end
+        end)
+    end
+
+    return width or 0.0,
+        height or 0.0
+end
+
 function CharacterShareLayout.hide_single_clone_image(
     button
 )
@@ -7965,31 +8059,50 @@ function CharacterShareLayout.hide_single_clone_image(
             1,
             true
         ) ~= nil then
+            local width,
+                height =
+                    CharacterShareLayout
+                        .image_dimensions(
+                            widget
+                        )
+
             table.insert(
                 images,
-                widget
+                {
+                    widget = widget,
+                    width = width,
+                    height = height,
+                }
             )
         end
     end
 
-    if #images ~= 1 then
-        log(
-            "Databank clone image substitution skipped: imageCount="
-                .. tostring(#images)
-        )
-        return false
+    local hidden = 0
+
+    for _, image in ipairs(images) do
+        if image.width >= 4.0
+            and image.height >= 4.0
+            and image.width <= 56.0
+            and image.height <= 56.0 then
+            local ok = pcall(function()
+                image.widget:SetRenderOpacity(0.0)
+                image.widget:SetVisibility(3)
+            end)
+
+            if ok then
+                hidden = hidden + 1
+            end
+        end
     end
 
-    pcall(function()
-        images[1]:SetVisibility(1)
-        images[1]:SetRenderOpacity(0.0)
-    end)
-
     log(
-        "Databank clone's single native image hidden for import-glyph label."
+        "Databank compact IMPORT inherited images cleaned: imageCount="
+            .. tostring(#images)
+            .. " hiddenCompactImages="
+            .. tostring(hidden)
     )
 
-    return true
+    return hidden > 0
 end
 
 function CharacterShareLayout.initialize_share_visual(
@@ -8190,10 +8303,13 @@ function CharacterShareLayout.configure_row_slot(
 end
 
 function CharacterShareLayout.install_import_glyph(
+    page,
     button
 )
-    if button == nil then
-        return false
+    if page == nil
+        or button == nil then
+        return nil,
+            "page/button unavailable"
     end
 
     local image_hidden =
@@ -8206,18 +8322,365 @@ function CharacterShareLayout.install_import_glyph(
         CharacterShareLayout
             .set_clone_label(
                 button,
-                "⇩  IMPORT"
+                ""
             )
+
+    pcall(function()
+        button:SetToolTipText(
+            FText("IMPORT CHARACTER")
+        )
+    end)
+
+    local overlay,
+        overlay_err =
+            construct_native_widget(
+                page,
+                "/Script/UMG.Overlay",
+                "CharacterShare_ImportOverlay"
+            )
+
+    if overlay == nil then
+        return nil,
+            "import Overlay unavailable: "
+                .. tostring(overlay_err)
+    end
+
+    pcall(function()
+        overlay:SetVisibility(4)
+    end)
+
+    local button_slot = nil
+
+    pcall(function()
+        button_slot =
+            unwrap_hook_value(
+                overlay:AddChild(
+                    button
+                )
+            )
+    end)
+
+    if button_slot == nil then
+        return nil,
+            "could not add import button to Overlay"
+    end
+
+    pcall(function()
+        button_slot:SetHorizontalAlignment(3)
+        button_slot:SetVerticalAlignment(3)
+    end)
+
+    local icon_size,
+        size_err =
+            construct_native_widget(
+                page,
+                "/Script/UMG.SizeBox",
+                "CharacterShare_ImportGlyphSize"
+            )
+
+    if icon_size == nil then
+        return nil,
+            "import glyph SizeBox unavailable: "
+                .. tostring(size_err)
+    end
+
+    pcall(function()
+        icon_size:SetWidthOverride(28.0)
+        icon_size:SetHeightOverride(28.0)
+        icon_size:SetVisibility(4)
+    end)
+
+    local canvas,
+        canvas_err =
+            construct_native_widget(
+                page,
+                "/Script/UMG.CanvasPanel",
+                "CharacterShare_ImportGlyphCanvas"
+            )
+
+    if canvas == nil then
+        return nil,
+            "import glyph CanvasPanel unavailable: "
+                .. tostring(canvas_err)
+    end
+
+    pcall(function()
+        canvas:SetVisibility(4)
+    end)
+
+    local canvas_slot = nil
+
+    pcall(function()
+        canvas_slot =
+            unwrap_hook_value(
+                icon_size:AddChild(
+                    canvas
+                )
+            )
+    end)
+
+    if canvas_slot == nil then
+        return nil,
+            "could not add import CanvasPanel to SizeBox"
+    end
+
+    pcall(function()
+        canvas_slot:SetHorizontalAlignment(3)
+        canvas_slot:SetVerticalAlignment(3)
+    end)
+
+    -- 28x28 Tabler file-import silhouette, drawn only with native UMG
+    -- Borders. This avoids external textures and remains crisp at UI scale.
+    local rects = {
+        { "DocTop", 8.0, 3.0, 9.0, 2.2, 0.0 },
+        { "DocLeftTop", 8.0, 3.0, 2.2, 8.0, 0.0 },
+        { "DocLeftBottom", 8.0, 20.0, 2.2, 4.0, 0.0 },
+        { "DocFoldRise", 16.0, 3.0, 2.2, 7.0, 0.0 },
+        { "DocFoldTop", 16.0, 8.0, 6.0, 2.2, 0.0 },
+        { "DocRight", 20.0, 8.0, 2.2, 16.0, 0.0 },
+        { "DocBottom", 8.0, 22.0, 14.0, 2.2, 0.0 },
+        { "ArrowShaft", 2.0, 15.0, 13.0, 2.4, 0.0 },
+        { "ArrowUp", 10.3, 12.0, 6.0, 2.4, 45.0 },
+        { "ArrowDown", 10.3, 18.0, 6.0, 2.4, -45.0 },
+    }
+
+    for _, spec in ipairs(rects) do
+        local rect,
+            rect_err =
+                construct_native_widget(
+                    page,
+                    "/Script/UMG.Border",
+                    "CharacterShare_ImportGlyph_"
+                        .. spec[1]
+                )
+
+        if rect == nil then
+            return nil,
+                "import glyph Border unavailable: "
+                    .. tostring(rect_err)
+        end
+
+        pcall(function()
+            rect:SetBrushColor({
+                R = 0.82,
+                G = 0.85,
+                B = 0.86,
+                A = 1.0,
+            })
+            rect:SetVisibility(4)
+
+            if spec[6] ~= 0.0 then
+                rect:SetRenderTransformAngle(
+                    spec[6]
+                )
+            end
+        end)
+
+        local rect_slot = nil
+
+        pcall(function()
+            rect_slot =
+                unwrap_hook_value(
+                    canvas:AddChildToCanvas(
+                        rect
+                    )
+                )
+        end)
+
+        if rect_slot == nil then
+            return nil,
+                "could not add import glyph Border to CanvasPanel"
+        end
+
+        pcall(function()
+            rect_slot:SetPosition({
+                X = spec[2],
+                Y = spec[3],
+            })
+            rect_slot:SetSize({
+                X = spec[4],
+                Y = spec[5],
+            })
+            rect_slot:SetAutoSize(false)
+        end)
+    end
+
+    local icon_slot = nil
+
+    pcall(function()
+        icon_slot =
+            unwrap_hook_value(
+                overlay:AddChild(
+                    icon_size
+                )
+            )
+    end)
+
+    if icon_slot == nil then
+        return nil,
+            "could not add import glyph to Overlay"
+    end
+
+    pcall(function()
+        icon_slot:SetHorizontalAlignment(2)
+        icon_slot:SetVerticalAlignment(2)
+        icon_size:SetRenderTranslation({
+            X = -4.0,
+            Y = -4.0,
+        })
+    end)
 
     log(
         string.format(
-            "Databank IMPORT visual initialized: label=%s inheritedPlusHidden=%s",
+            "Databank compact IMPORT visual initialized: labelBlanked=%s inheritedPlusHidden=%s nativeVectorIcon=true",
             tostring(label_changed),
             tostring(image_hidden)
         )
     )
 
-    return label_changed
+    return overlay,
+        canvas,
+        nil
+end
+
+function CharacterShareLayout.set_import_icon_color(
+    canvas,
+    color
+)
+    if canvas == nil
+        or color == nil then
+        return false
+    end
+
+    local count = 0
+
+    pcall(function()
+        count =
+            tonumber(
+                canvas:GetChildrenCount()
+            ) or 0
+    end)
+
+    local changed = 0
+
+    for index = 0, count - 1 do
+        local child = nil
+
+        pcall(function()
+            child =
+                unwrap_hook_value(
+                    canvas:GetChildAt(
+                        index
+                    )
+                )
+        end)
+
+        if child ~= nil then
+            local ok = pcall(function()
+                child:SetBrushColor(
+                    color
+                )
+            end)
+
+            if ok then
+                changed =
+                    changed + 1
+            end
+        end
+    end
+
+    return changed > 0
+end
+
+function CharacterShareLayout.start_import_hover_monitor(
+    button,
+    canvas
+)
+    local identity =
+        databank_widget_identity(
+            button
+        )
+
+    local visual_state = nil
+
+    local function tick()
+        local entry =
+            databank_ui_state.buttons[
+                identity
+            ]
+
+        if entry == nil
+            or entry.action
+                ~= "databank_import"
+            or widget_parent(button) == nil then
+            return
+        end
+
+        local hovered = false
+        local focused = false
+
+        pcall(function()
+            hovered =
+                button:IsHovered()
+                    == true
+        end)
+
+        pcall(function()
+            focused =
+                button:HasKeyboardFocus()
+                    == true
+        end)
+
+        local wanted =
+            (hovered or focused)
+                and "hover"
+                or "normal"
+
+        if wanted ~= visual_state then
+            visual_state = wanted
+
+            CharacterShareLayout
+                .set_import_icon_color(
+                    canvas,
+                    wanted == "hover"
+                        and {
+                            R = 0.05,
+                            G = 0.06,
+                            B = 0.07,
+                            A = 1.0,
+                        }
+                        or {
+                            R = 0.82,
+                            G = 0.85,
+                            B = 0.86,
+                            A = 1.0,
+                        }
+                )
+        end
+
+        ExecuteWithDelay(40, function()
+            ExecuteInGameThread(
+                tick
+            )
+        end)
+    end
+
+    CharacterShareLayout
+        .set_import_icon_color(
+            canvas,
+            {
+                R = 0.82,
+                G = 0.85,
+                B = 0.86,
+                A = 1.0,
+            }
+        )
+
+    ExecuteWithDelay(40, function()
+        ExecuteInGameThread(
+            tick
+        )
+    end)
 end
 
 local function create_unregistered_databank_button(
@@ -8305,30 +8768,6 @@ local function install_import_button(
         return false
     end
 
-    local parent,
-        create_index =
-            verified_anchor_parent(
-                create_new
-            )
-
-    if parent == nil then
-        log(
-            "Databank IMPORT not ready: live Create New parent unavailable."
-        )
-        return false
-    end
-
-    -- Capture only Create New's own native slot. Older revisions snapshotted,
-    -- cleared, and rebuilt this entire parent to replace one child. On first
-    -- Databank entry that could detach/re-add the live character-list widget
-    -- while CommonUI was still establishing its selection state. Keep every
-    -- unrelated native sibling permanently attached instead.
-    local create_layout =
-        CharacterShareLayout
-            .capture_box_slot_layout(
-                create_new
-            )
-
     local import_button,
         import_err =
             CharacterShareLayout
@@ -8352,6 +8791,248 @@ local function install_import_button(
         import_button:SetIsFocusable(true)
         import_button:SetIsSelectable(false)
     end)
+
+    local import_overlay,
+        import_canvas,
+        glyph_err =
+            CharacterShareLayout
+                .install_import_glyph(
+                    page,
+                    import_button
+                )
+
+    if import_overlay == nil then
+        log(
+            "Databank IMPORT compact glyph creation failed: "
+                .. tostring(glyph_err)
+        )
+        return false
+    end
+
+    local function finish_install(
+        row,
+        layout_mode
+    )
+        register_attached_databank_button(
+            import_button,
+            "databank_import",
+            "IMPORT"
+        )
+
+        -- Registration updates native button text for ordinary action buttons.
+        -- This compact action is icon-only, so clear it once more afterwards.
+        CharacterShareLayout
+            .set_clone_label(
+                import_button,
+                ""
+            )
+
+        CharacterShareLayout
+            .hide_single_clone_image(
+                import_button
+            )
+
+        local expected_identity =
+            databank_widget_identity(
+                import_button
+            )
+
+        -- The native Create New clone can rebuild its + image and text branch
+        -- during its delayed Construct/style pass. Enhanced Databank performs
+        -- the same second cleanup for Create Folder; mirror it here so only the
+        -- UMG file-import glyph remains visible.
+        ExecuteWithDelay(80, function()
+            ExecuteInGameThread(function()
+                local entry =
+                    databank_ui_state.buttons[
+                        expected_identity
+                    ]
+
+                if entry ~= nil
+                    and entry.action
+                        == "databank_import" then
+                    CharacterShareLayout
+                        .set_clone_label(
+                            import_button,
+                            ""
+                        )
+
+                    CharacterShareLayout
+                        .hide_single_clone_image(
+                            import_button
+                        )
+                end
+            end)
+        end)
+
+        CharacterShareLayout
+            .start_import_hover_monitor(
+                import_button,
+                import_canvas
+            )
+
+        page_state.importInstalled = true
+        page_state.importRow = row
+
+        log(
+            "Databank compact IMPORT installed: layout="
+                .. tostring(layout_mode)
+                .. " iconWidth=64.0 gap=8.0"
+        )
+
+        return true
+    end
+
+    -- Enhanced Databank may already own the Create New action row. Adopt that
+    -- row and append our compact action instead of wrapping Create New again.
+    -- The two mods therefore produce the same flat layout regardless of load
+    -- order: Create New | Import | Create Folder.
+    local enhanced_row =
+        CharacterShareLayout
+            .find_widget(
+                page,
+                "EnhancedDatabank_CreateFolderRow"
+            )
+
+    if enhanced_row == nil then
+        enhanced_row =
+            CharacterShareLayout
+                .find_widget(
+                    page,
+                    "DatabankDiscoveryProbe_CreateFolderRow"
+                )
+    end
+
+    local enhanced_create_wrapper =
+        CharacterShareLayout
+            .find_widget(
+                page,
+                "EnhancedDatabank_CreateNewWidth"
+            )
+
+    if enhanced_create_wrapper == nil then
+        enhanced_create_wrapper =
+            CharacterShareLayout
+                .find_widget(
+                    page,
+                    "DatabankDiscoveryProbe_CreateNewWidth"
+                )
+    end
+
+    if enhanced_row ~= nil
+        and enhanced_create_wrapper ~= nil
+        and panel_child_index(
+            enhanced_row,
+            enhanced_create_wrapper
+        ) >= 0 then
+        local create_width =
+            CharacterShareLayout
+                .widget_local_width(
+                    enhanced_create_wrapper
+                )
+
+        if create_width == nil
+            or create_width < 120.0 then
+            create_width = 628.0
+        end
+
+        local resized_width =
+            math.max(
+                120.0,
+                create_width - 72.0
+            )
+
+        pcall(function()
+            enhanced_create_wrapper:SetWidthOverride(
+                resized_width
+            )
+        end)
+
+        local import_wrapper,
+            _,
+            wrapper_err =
+                CharacterShareLayout
+                    .make_width_wrapper(
+                        page,
+                        import_overlay,
+                        "CharacterShare_ImportWidth",
+                        64.0
+                    )
+
+        if import_wrapper == nil then
+            log(
+                "Databank IMPORT could not join Enhanced Databank row: "
+                    .. tostring(wrapper_err)
+            )
+            return false
+        end
+
+        local import_slot = nil
+
+        pcall(function()
+            import_slot =
+                unwrap_hook_value(
+                    enhanced_row:AddChild(
+                        import_wrapper
+                    )
+                )
+        end)
+
+        if import_slot == nil then
+            log(
+                "Databank IMPORT could not append to Enhanced Databank row."
+            )
+            return false
+        end
+
+        CharacterShareLayout
+            .configure_row_slot(
+                import_slot,
+                8.0
+            )
+
+        local moved,
+            move_err =
+                visually_move_appended_child_to_index(
+                    enhanced_row,
+                    import_wrapper,
+                    1,
+                    "horizontal"
+                )
+
+        if not moved then
+            log(
+                "Databank IMPORT could not move ahead of Create Folder; keeping appended order: "
+                    .. tostring(move_err)
+            )
+        end
+
+        return finish_install(
+            enhanced_row,
+            "adopted-enhanced-row"
+        )
+    end
+
+    local parent,
+        create_index =
+            verified_anchor_parent(
+                create_new
+            )
+
+    if parent == nil then
+        log(
+            "Databank IMPORT not ready: live Create New parent unavailable."
+        )
+        return false
+    end
+
+    -- Capture only Create New's own native slot. Keep every unrelated native
+    -- sibling permanently attached while replacing this single slot.
+    local create_layout =
+        CharacterShareLayout
+            .capture_box_slot_layout(
+                create_new
+            )
 
     local row,
         row_err =
@@ -8386,21 +9067,22 @@ local function install_import_button(
     end
 
     local gap = 8.0
-    local half_width =
+    local import_width = 64.0
+    local create_width =
         math.max(
             120.0,
-            (
-                original_width
-                    - gap
-            ) / 2.0
+            original_width
+                - gap
+                - import_width
         )
 
     log(
         string.format(
-            "Databank IMPORT row width: original=%.1f gap=%.1f half=%.1f",
+            "Databank compact IMPORT row width: original=%.1f gap=%.1f create=%.1f import=%.1f",
             original_width,
             gap,
-            half_width
+            create_width,
+            import_width
         )
     )
 
@@ -8514,8 +9196,8 @@ local function install_import_button(
                 .make_width_wrapper(
                     page,
                     create_new,
-                    "CharacterShare_CreateNewHalf",
-                    half_width
+                    "CharacterShare_CreateNewWidth",
+                    create_width
                 )
 
     import_wrapper,
@@ -8524,9 +9206,9 @@ local function install_import_button(
             CharacterShareLayout
                 .make_width_wrapper(
                     page,
-                    import_button,
-                    "CharacterShare_ImportHalf",
-                    half_width
+                    import_overlay,
+                    "CharacterShare_ImportWidth",
+                    import_width
                 )
 
     if create_wrapper == nil
@@ -8639,28 +9321,17 @@ local function install_import_button(
         return false
     end
 
-    register_attached_databank_button(
-        import_button,
-        "databank_import",
-        "IMPORT"
-    )
-
-    CharacterShareLayout
-        .install_import_glyph(
-            import_button
-        )
-
-    page_state.importInstalled = true
-    page_state.importRow = row
-
     log(
         string.format(
-            "Databank IMPORT installed beside Create New using append+visual rotation only (character-list parent never rebuilt, original index=%d).",
+            "Databank compact IMPORT row attached using localized append+visual rotation (original index=%d).",
             create_index
         )
     )
 
-    return true
+    return finish_install(
+        row,
+        "character-share-row"
+    )
 end
 
 local function install_share_button(
@@ -10395,4 +11066,4 @@ if not preflight_key_ok then
     log("WARNING: import preflight hotkey registration failed: " .. tostring(preflight_key_err))
 end
 
-log("Character Share ready. v1.0.1")
+log("Character Share ready. v1.0.2")

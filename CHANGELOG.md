@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+
+## [1.0.2] - 2026-09-13
+
+### Changed
+
+- Replaced the half-width text Import control with a compact native button and a Tabler-inspired file-import glyph drawn entirely from UMG primitives.
+- Made the Databank top action installer cooperate with Enhanced Databank's Create Folder row instead of nesting or overlapping either mod's controls.
+
 ## [1.0.1]
 
 ### Fixed

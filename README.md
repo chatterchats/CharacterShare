@@ -2,6 +2,8 @@
 
 Character Share is a UE4SS mod for **STAR WARS Zero Company** that adds native-looking **Share** and **Import** actions to the Character Databank.
 
+The Import action is a compact icon button beside **Create New**. Its Tabler-inspired file-import mark is drawn from native UMG primitives, and its action row cooperates with Enhanced Databank's compact **Create Folder** button when both mods are enabled.
+
 It lets players exchange custom characters with compact `ZC1-...` share codes without opening the Character Creator to complete an import. Character Share supports both Custom Characters and Astromechs, duplicate-safe overwrite/rename flows, and raw fallbacks for mod-added customization assets.
 
 ## Features
