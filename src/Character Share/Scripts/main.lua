@@ -75,7 +75,11 @@ local function try_call(fn)
     return nil, tostring(result)
 end
 
-if type(ExecuteInGameThreadWithDelay) ~= "function" then
+if type(ExecuteInGameThreadWithDelay) ~= "function"
+    or type(MakeActionHandle) ~= "function"
+    or type(CancelDelayedAction) ~= "function"
+    or type(IsValidDelayedActionHandle) ~= "function"
+    or type(IsDelayedActionActive) ~= "function" then
     error(
         "Character Share requires the UE4SS delayed game-thread action system"
     )
@@ -83,6 +87,9 @@ end
 
 CharacterShareLayout =
     CharacterShareLayout or {}
+
+CharacterShareLayout.actionGroups =
+    CharacterShareLayout.actionGroups or {}
 
 local function read_property(object, property_name)
     if object == nil then
@@ -407,7 +414,96 @@ function CharacterShareLayout.popup_context_uobjects_valid(context)
     return true
 end
 
-function CharacterShareLayout.run_after(
+function CharacterShareLayout.cancel_action_group(
+    group,
+    reason
+)
+    local actions =
+        CharacterShareLayout.actionGroups[group]
+
+    if actions == nil then
+        return 0
+    end
+
+    CharacterShareLayout.actionGroups[group] = nil
+
+    local cancelled = 0
+    local active = 0
+
+    for handle in pairs(actions) do
+        local valid =
+            select(
+                1,
+                try_call(function()
+                    return IsValidDelayedActionHandle(handle)
+                end)
+            )
+
+        local is_active =
+            select(
+                1,
+                try_call(function()
+                    return IsDelayedActionActive(handle)
+                end)
+            )
+
+        if is_active == true then
+            active = active + 1
+        end
+
+        if valid == true then
+            local did_cancel =
+                select(
+                    1,
+                    try_call(function()
+                        return CancelDelayedAction(handle)
+                    end)
+                )
+
+            if did_cancel == true then
+                cancelled = cancelled + 1
+            end
+        end
+    end
+
+    if cancelled > 0 then
+        log(
+            string.format(
+                "Cancelled delayed-action group '%s': cancelled=%d active=%d reason=%s",
+                tostring(group),
+                cancelled,
+                active,
+                tostring(reason or "session ended")
+            )
+        )
+    end
+
+    return cancelled
+end
+
+function CharacterShareLayout.cancel_all_action_groups(reason)
+    local groups = {}
+
+    for group in pairs(CharacterShareLayout.actionGroups) do
+        table.insert(groups, group)
+    end
+
+    local cancelled = 0
+
+    for _, group in ipairs(groups) do
+        cancelled =
+            cancelled
+            + CharacterShareLayout.cancel_action_group(
+                group,
+                reason
+            )
+    end
+
+    return cancelled
+end
+
+function CharacterShareLayout.schedule_after(
+    group,
     delay_ms,
     callback,
     ...
@@ -419,27 +515,93 @@ function CharacterShareLayout.run_after(
         ...,
     }
 
+    local handle = nil
+    local actions = nil
+
+    if group ~= nil then
+        handle = MakeActionHandle()
+        actions =
+            CharacterShareLayout.actionGroups[group]
+                or {}
+        CharacterShareLayout.actionGroups[group] =
+            actions
+        actions[handle] = true
+    end
+
+    local function invoke()
+        if actions ~= nil then
+            actions[handle] = nil
+
+            if next(actions) == nil
+                and CharacterShareLayout.actionGroups[group]
+                    == actions then
+                CharacterShareLayout.actionGroups[group] = nil
+            end
+        end
+
+        for index = 1, captured_count do
+            if not CharacterShareLayout
+                .uobject_is_valid(
+                    captured_uobjects[index]
+                ) then
+                log(
+                    "Skipped delayed action: captured UObject #"
+                        .. tostring(index)
+                        .. " is no longer valid."
+                )
+                return
+            end
+        end
+
+        callback()
+    end
+
+    if handle ~= nil then
+        ExecuteInGameThreadWithDelay(
+            handle,
+            math.max(0, tonumber(delay_ms) or 0),
+            invoke
+        )
+
+        return handle
+    end
+
     return ExecuteInGameThreadWithDelay(
         math.max(0, tonumber(delay_ms) or 0),
-        function()
-            for index = 1, captured_count do
-                if not CharacterShareLayout
-                    .uobject_is_valid(
-                        captured_uobjects[index]
-                    ) then
-                    log(
-                        "Skipped delayed action: captured UObject #"
-                            .. tostring(index)
-                            .. " is no longer valid."
-                    )
-                    return
-                end
-            end
-
-            callback()
-        end
+        invoke
     )
 end
+
+function CharacterShareLayout.run_after(
+    delay_ms,
+    callback,
+    ...
+)
+    return CharacterShareLayout.schedule_after(
+        nil,
+        delay_ms,
+        callback,
+        ...
+    )
+end
+
+function CharacterShareLayout.run_group_after(
+    group,
+    delay_ms,
+    callback,
+    ...
+)
+    return CharacterShareLayout.schedule_after(
+        group,
+        delay_ms,
+        callback,
+        ...
+    )
+end
+
+CharacterShareLayout.cancel_all_action_groups(
+    "mod script reloaded"
+)
 
 local function load_class(class_path)
     local class_object, class_err = try_call(function()
@@ -665,7 +827,7 @@ local function create_game_entry(
 
     -- create_game_entry() runs before the widget is inserted into the dialog's
     -- NamedSlot. Reapply after that insertion has caused BP Construct to run.
-    CharacterShareLayout.run_after(1, function()
+    CharacterShareLayout.run_group_after("popup_retirement", 1, function()
         apply_entry_value()
     end, entry, editable_text)
 
@@ -812,6 +974,11 @@ local function reset_popup_state()
 end
 
 local function close_native_popup()
+    CharacterShareLayout.cancel_action_group(
+        "popup_retirement",
+        "popup closed or replaced"
+    )
+
     if popup_state.widget == nil then
         return
     end
@@ -875,10 +1042,15 @@ local function retire_native_popup(widget, on_retired)
         return
     end
 
+    CharacterShareLayout.cancel_action_group(
+        "popup_retirement",
+        "new popup retirement started"
+    )
+
     -- OnCloseWindow is the popup's own close path and is already the normal
     -- programmatic-close method used by Character Share. Run it after the
     -- BP_OnHideDialog callback returns so we do not re-enter the result handler.
-    CharacterShareLayout.run_after(1, function()
+    CharacterShareLayout.run_group_after("popup_retirement", 1, function()
             local _, close_err = try_call(function()
                 widget:OnCloseWindow()
             end)
@@ -925,7 +1097,8 @@ local function retire_native_popup(widget, on_retired)
                     end
 
                     if attempts < 10 then
-                        CharacterShareLayout.run_after(
+                        CharacterShareLayout.run_group_after(
+                            "popup_retirement",
                             50,
                             wait_for_retirement,
                             widget
@@ -939,7 +1112,7 @@ local function retire_native_popup(widget, on_retired)
                         widget:DeactivateWidget()
                     end)
 
-                    CharacterShareLayout.run_after(100, function()
+                    CharacterShareLayout.run_group_after("popup_retirement", 100, function()
                             log(
                                 "Native dialog retirement forced through DeactivateWidget: "
                                     .. popup_widget_identity(widget)
@@ -951,7 +1124,8 @@ local function retire_native_popup(widget, on_retired)
                     end, widget)
             end
 
-            CharacterShareLayout.run_after(
+            CharacterShareLayout.run_group_after(
+                "popup_retirement",
                 50,
                 wait_for_retirement,
                 widget
@@ -1252,7 +1426,7 @@ local function install_popup_topnav_actions(
 
     -- Blueprint Construct can restore its design-time text. Re-apply labels on
     -- the next tick by walking only our newly-created action row children.
-    CharacterShareLayout.run_after(1, function()
+    CharacterShareLayout.run_group_after("popup_retirement", 1, function()
         if popup_state.widget ~= popup then
             return
         end
@@ -1751,7 +1925,8 @@ local function schedule_native_dialog_button_polish(
 )
     attempt = attempt or 1
 
-    CharacterShareLayout.run_after(
+    CharacterShareLayout.run_group_after(
+        "popup_retirement",
         attempt == 1 and 1 or 35,
         function()
                 if popup_state.widget ~= popup then
@@ -1978,7 +2153,7 @@ local function show_native_dialog(
 
     -- Let the pooled CommonActivatableWidget finish reconstructing, then make
     -- sure the newly configured dialog is the visible/active one.
-    CharacterShareLayout.run_after(1, function()
+    CharacterShareLayout.run_group_after("popup_retirement", 1, function()
             if popup_state.widget == popup then
                 pcall(function()
                     popup:SetVisibility(0)
@@ -2254,6 +2429,15 @@ local function adopt_valid_import_code(code)
 
     if pending_import_code ~= nil
         and pending_import_code ~= code then
+        CharacterShareLayout.cancel_action_group(
+            "import_create",
+            "share code replaced"
+        )
+        CharacterShareLayout.cancel_action_group(
+            "overwrite_verification",
+            "share code replaced"
+        )
+
         pending_import_navigation_generation =
             pending_import_navigation_generation + 1
 
@@ -2277,6 +2461,15 @@ local function adopt_valid_import_code(code)
 end
 
 local function clear_pending_import()
+    CharacterShareLayout.cancel_action_group(
+        "import_create",
+        "import session ended"
+    )
+    CharacterShareLayout.cancel_action_group(
+        "overwrite_verification",
+        "import session ended"
+    )
+
     pending_import_navigation_generation =
         pending_import_navigation_generation + 1
 
@@ -5456,10 +5649,20 @@ local function wait_for_new_character_to_close(
                 return
             end
 
-        CharacterShareLayout.run_after(100, poll, databank_vm)
+        CharacterShareLayout.run_group_after(
+            "overwrite_verification",
+            100,
+            poll,
+            databank_vm
+        )
     end
 
-    CharacterShareLayout.run_after(100, poll, databank_vm)
+    CharacterShareLayout.run_group_after(
+        "overwrite_verification",
+        100,
+        poll,
+        databank_vm
+    )
 end
 
 local function close_active_new_character_before_overwrite(
@@ -5534,6 +5737,11 @@ local function auto_import_fail(
     message,
     new_vm
 )
+    CharacterShareLayout.cancel_action_group(
+        "import_create",
+        "automatic import failed"
+    )
+
     log(
         "AUTO IMPORT FAILED: "
             .. tostring(message)
@@ -5654,7 +5862,7 @@ local function wait_for_native_create_new_then_stage(
     attempt =
         attempt or 1
 
-    CharacterShareLayout.run_after(0, function()
+    CharacterShareLayout.run_group_after("import_create", 0, function()
         if navigation_generation
             ~= pending_import_navigation_generation then
             return
@@ -5719,7 +5927,8 @@ local function wait_for_native_create_new_then_stage(
                             )
                         )
 
-                        CharacterShareLayout.run_after(
+                        CharacterShareLayout.run_group_after(
+                            "import_create",
                             100,
                             function()
                                 wait_for_native_create_new_then_stage(
@@ -5801,7 +6010,8 @@ local function wait_for_native_create_new_then_stage(
             return
         end
 
-        CharacterShareLayout.run_after(
+        CharacterShareLayout.run_group_after(
+            "import_create",
             100,
             function()
                 wait_for_native_create_new_then_stage(
@@ -6065,7 +6275,8 @@ local function verify_headless_created_character(
         end
 
         if attempt < 20 then
-            CharacterShareLayout.run_after(
+            CharacterShareLayout.run_group_after(
+                "import_create",
                 100,
                 function()
                     verify_headless_created_character(
@@ -6264,7 +6475,8 @@ local function wait_for_headless_draft_then_stage(
                     return
                 end
 
-                CharacterShareLayout.run_after(
+                CharacterShareLayout.run_group_after(
+                    "import_create",
                     100,
                     function()
                         wait_for_headless_draft_then_stage(
@@ -6312,7 +6524,8 @@ local function wait_for_headless_draft_then_stage(
             return
         end
 
-    CharacterShareLayout.run_after(
+    CharacterShareLayout.run_group_after(
+            "import_create",
             100,
             function()
                 wait_for_headless_draft_then_stage(
@@ -6332,6 +6545,15 @@ end
 
 local function begin_new_import_stage(payload)
     safe_remove_popup()
+
+    CharacterShareLayout.cancel_action_group(
+        "import_create",
+        "new native import started"
+    )
+    CharacterShareLayout.cancel_action_group(
+        "overwrite_verification",
+        "new native import started"
+    )
 
     if payload == nil then
         show_notice_popup(
@@ -6485,6 +6707,15 @@ end
 local function begin_overwrite_stage(payload, match)
     safe_remove_popup()
 
+    CharacterShareLayout.cancel_action_group(
+        "import_create",
+        "transitioned to overwrite"
+    )
+    CharacterShareLayout.cancel_action_group(
+        "overwrite_verification",
+        "new overwrite started"
+    )
+
     local aux_vm =
         find_first(
             "CharacterBankAuxVM_C"
@@ -6508,6 +6739,11 @@ local function begin_overwrite_stage(payload, match)
     end
 
     local function fail(message)
+        CharacterShareLayout.cancel_action_group(
+            "overwrite_verification",
+            "overwrite failed"
+        )
+
         log(
             "NATIVE OVERWRITE FAILED: "
                 .. tostring(
@@ -6860,7 +7096,8 @@ local function begin_overwrite_stage(payload, match)
                                 -- is not a disk-reload proof, but it does verify
                                 -- that the Databank's selected saved model still
                                 -- resolves to the imported state after Save.
-                                CharacterShareLayout.run_after(
+                                CharacterShareLayout.run_group_after(
+                                    "overwrite_verification",
                                     150,
                                     function()
                                                 try_call(
@@ -6953,7 +7190,8 @@ local function begin_overwrite_stage(payload, match)
                     end
 
                     if attempt < 30 then
-                        CharacterShareLayout.run_after(
+                        CharacterShareLayout.run_group_after(
+                            "overwrite_verification",
                             100,
                             wait_for_selected_vm,
                             aux_vm,
@@ -6967,7 +7205,8 @@ local function begin_overwrite_stage(payload, match)
                     end
         end
 
-        CharacterShareLayout.run_after(
+        CharacterShareLayout.run_group_after(
+            "overwrite_verification",
             50,
             wait_for_selected_vm,
             aux_vm,
@@ -9852,7 +10091,7 @@ local function install_databank_ui_for_active_master(
     end
 
     -- One guarded retry only, scoped to this exact activation generation.
-    CharacterShareLayout.run_after(100, function()
+    CharacterShareLayout.run_group_after("databank_entry_install", 100, function()
         if generation ~= databank_ui_state.generation then
             return
         end
@@ -9896,6 +10135,23 @@ local function leave_databank_session(reason)
     databank_ui_state.generation =
         databank_ui_state.generation + 1
 
+    CharacterShareLayout.cancel_action_group(
+        "databank_entry_install",
+        "left Character Databank"
+    )
+    CharacterShareLayout.cancel_action_group(
+        "popup_retirement",
+        "left Character Databank"
+    )
+    CharacterShareLayout.cancel_action_group(
+        "import_create",
+        "left Character Databank"
+    )
+    CharacterShareLayout.cancel_action_group(
+        "overwrite_verification",
+        "left Character Databank"
+    )
+
     databank_ui_state.activeMaster = nil
     databank_ui_state.activeMasterIdentity = nil
     databank_ui_state.shareDispatchPending = false
@@ -9906,6 +10162,42 @@ local function leave_databank_session(reason)
         "Character Databank session paused; preserving installed controls for reusable screen. reason="
             .. tostring(reason or "navigation")
     )
+end
+
+function CharacterShareLayout.register_databank_deactivation_hook()
+    if CharacterShareLayout.databankDeactivationHookRegistered then
+        return true
+    end
+
+    local ok, hook_id = pcall(function()
+        return RegisterHook(
+            "/Script/CommonUI.CommonActivatableWidget:DeactivateWidget",
+            function(context, ...)
+                local widget = unwrap_hook_value(context)
+                local active_master = databank_ui_state.activeMaster
+
+                if widget ~= nil
+                    and active_master ~= nil
+                    and same_remote_object(widget, active_master) then
+                    leave_databank_session(
+                        "Databank master DeactivateWidget"
+                    )
+                end
+            end
+        )
+    end)
+
+    if not ok or hook_id == nil then
+        log(
+            "WARNING: Character Databank deactivation hook failed: "
+                .. tostring(hook_id)
+        )
+        return false
+    end
+
+    CharacterShareLayout.databankDeactivationHookRegistered = true
+    log("Character Databank deactivation cancellation hook registered.")
+    return true
 end
 
 local function reset_databank_install_state_for_new_master(
@@ -9964,6 +10256,11 @@ local function begin_databank_session(master)
     if master_identity == nil then
         return
     end
+
+    CharacterShareLayout.cancel_action_group(
+        "databank_entry_install",
+        "Databank entry confirmed"
+    )
 
     local same_installed_master =
         databank_ui_state.installedMasterIdentity
@@ -10070,7 +10367,7 @@ local function probe_for_databank_after_menu_click(
     local delay =
         delays[attempt + 1] or 250
 
-    CharacterShareLayout.run_after(delay, function()
+    CharacterShareLayout.run_group_after("databank_entry_install", delay, function()
         if probe_generation
             ~= databank_entry_probe_generation then
             return
@@ -10100,6 +10397,14 @@ local function handle_strategy_submenu_click(button)
         ) then
         return
     end
+
+    CharacterShareLayout.cancel_action_group(
+        "databank_entry_install",
+        "Strategy submenu selection changed"
+    )
+
+    databank_entry_probe_generation =
+        databank_entry_probe_generation + 1
 
     -- The game reuses the Character Databank widget after backing out. Keep
     -- its action mappings/install flags across Strategy navigation so returning
@@ -10150,9 +10455,6 @@ local function handle_strategy_submenu_click(button)
         return
     end
 
-    databank_entry_probe_generation =
-        databank_entry_probe_generation + 1
-
     local probe_generation =
         databank_entry_probe_generation
 
@@ -10162,7 +10464,7 @@ local function handle_strategy_submenu_click(button)
         "Character Databank submenu click detected; starting bounded entry check."
     )
 
-    CharacterShareLayout.run_after(150, function()
+    CharacterShareLayout.run_group_after("databank_entry_install", 150, function()
         if probe_generation
             ~= databank_entry_probe_generation then
             return
@@ -10260,7 +10562,12 @@ local function handle_popup_topnav_action(
 
     -- Give CommonUI one short native-outro window before opening the next
     -- Character Share dialog or entering the game's native Edit flow.
-    CharacterShareLayout.run_after(120, function()
+    CharacterShareLayout.cancel_action_group(
+        "popup_retirement",
+        "popup TopNav transition replaced"
+    )
+
+    CharacterShareLayout.run_group_after("popup_retirement", 120, function()
             if not CharacterShareLayout
                 .popup_context_uobjects_valid(
                     captured_context
@@ -10380,7 +10687,7 @@ local function handle_databank_button_click(
             "Databank IMPORT queued until native button click unwinds."
         )
 
-        CharacterShareLayout.run_after(1, function()
+        CharacterShareLayout.run_group_after("import_create", 1, function()
                 databank_ui_state.importDispatchPending = false
 
                 if expected_generation
@@ -10448,7 +10755,7 @@ local function handle_databank_button_click(
             "Databank SHARE queued until native BoundActionButton click unwinds."
         )
 
-        CharacterShareLayout.run_after(1, function()
+        CharacterShareLayout.run_group_after("popup_retirement", 1, function()
                 databank_ui_state.shareDispatchPending = false
 
                 if expected_generation
@@ -10917,7 +11224,7 @@ handle_native_dialog_result = function(widget_value, result_value)
     finish_native_popup_hide(widget)
 
     retire_native_popup(widget, function()
-        CharacterShareLayout.run_after(0, function()
+        CharacterShareLayout.run_group_after("popup_retirement", 0, function()
             if not CharacterShareLayout
                 .popup_context_uobjects_valid(
                     captured_context
@@ -11108,6 +11415,7 @@ log(
 
 register_databank_click_hook()
 CharacterShareLayout.register_databank_hover_hooks()
+CharacterShareLayout.register_databank_deactivation_hook()
 
 local json_export_key_ok, json_export_key_err = pcall(function()
     RegisterKeyBind(Key.F7, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()

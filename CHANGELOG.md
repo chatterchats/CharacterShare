@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Added owned, cancellable delayed-action groups for Databank entry/install,
+  popup setup and retirement, import/create, and overwrite verification.
+  Leaving the Databank, replacing an import, closing a popup, or ending a
+  workflow now cancels pending actions immediately while retaining generation
+  and UObject-validity checks as secondary guards.
 - Added fail-closed `IsValid()` checks at delayed-action execution boundaries
   for captured popup widgets, Databank widgets, character ViewModels, import
   controls, and overwrite context. Stale callbacks now stop before touching

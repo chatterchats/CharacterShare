@@ -20,7 +20,8 @@ It lets players exchange custom characters with compact `ZC1-...` share codes wi
 
 - **STAR WARS Zero Company**
 - **UE4SS** with the delayed game-thread action API
-  (`ExecuteInGameThreadWithDelay`)
+  (`ExecuteInGameThreadWithDelay`, `MakeActionHandle`, `CancelDelayedAction`,
+  `IsValidDelayedActionHandle`, and `IsDelayedActionActive`)
 
 Character Share has been tested on the Steam release with these game builds:
 
