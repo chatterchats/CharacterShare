@@ -75,6 +75,25 @@ local function try_call(fn)
     return nil, tostring(result)
 end
 
+if type(ExecuteInGameThreadWithDelay) ~= "function" then
+    error(
+        "Character Share requires the UE4SS delayed game-thread action system"
+    )
+end
+
+CharacterShareLayout =
+    CharacterShareLayout or {}
+
+function CharacterShareLayout.run_after(
+    delay_ms,
+    callback
+)
+    return ExecuteInGameThreadWithDelay(
+        math.max(0, tonumber(delay_ms) or 0),
+        callback
+    )
+end
+
 local function read_property(object, property_name)
     if object == nil then
         return nil, "owner nil"
@@ -588,10 +607,8 @@ local function create_game_entry(
 
     -- create_game_entry() runs before the widget is inserted into the dialog's
     -- NamedSlot. Reapply after that insertion has caused BP Construct to run.
-    ExecuteWithDelay(1, function()
-        ExecuteInGameThread(function()
-            apply_entry_value()
-        end)
+    CharacterShareLayout.run_after(1, function()
+        apply_entry_value()
     end)
 
     return entry, editable_text, nil
@@ -803,8 +820,7 @@ local function retire_native_popup(widget, on_retired)
     -- OnCloseWindow is the popup's own close path and is already the normal
     -- programmatic-close method used by Character Share. Run it after the
     -- BP_OnHideDialog callback returns so we do not re-enter the result handler.
-    ExecuteWithDelay(1, function()
-        ExecuteInGameThread(function()
+    CharacterShareLayout.run_after(1, function()
             local _, close_err = try_call(function()
                 widget:OnCloseWindow()
             end)
@@ -821,7 +837,6 @@ local function retire_native_popup(widget, on_retired)
             local function wait_for_retirement()
                 attempts = attempts + 1
 
-                ExecuteInGameThread(function()
                     local active =
                         native_popup_activation_state(widget)
 
@@ -852,7 +867,7 @@ local function retire_native_popup(widget, on_retired)
                     end
 
                     if attempts < 10 then
-                        ExecuteWithDelay(
+                        CharacterShareLayout.run_after(
                             50,
                             wait_for_retirement
                         )
@@ -865,8 +880,7 @@ local function retire_native_popup(widget, on_retired)
                         widget:DeactivateWidget()
                     end)
 
-                    ExecuteWithDelay(100, function()
-                        ExecuteInGameThread(function()
+                    CharacterShareLayout.run_after(100, function()
                             log(
                                 "Native dialog retirement forced through DeactivateWidget: "
                                     .. popup_widget_identity(widget)
@@ -875,16 +889,13 @@ local function retire_native_popup(widget, on_retired)
                             if on_retired ~= nil then
                                 on_retired()
                             end
-                        end)
                     end)
-                end)
             end
 
-            ExecuteWithDelay(
+            CharacterShareLayout.run_after(
                 50,
                 wait_for_retirement
             )
-        end)
     end)
 end
 
@@ -1181,11 +1192,10 @@ local function install_popup_topnav_actions(
 
     -- Blueprint Construct can restore its design-time text. Re-apply labels on
     -- the next tick by walking only our newly-created action row children.
-    ExecuteWithDelay(1, function()
-        ExecuteInGameThread(function()
-            if popup_state.widget ~= popup then
-                return
-            end
+    CharacterShareLayout.run_after(1, function()
+        if popup_state.widget ~= popup then
+            return
+        end
 
             local child_count = 0
 
@@ -1218,7 +1228,6 @@ local function install_popup_topnav_actions(
                     end
                 end
             end
-        end)
     end)
 
     return true, nil
@@ -1682,10 +1691,9 @@ local function schedule_native_dialog_button_polish(
 )
     attempt = attempt or 1
 
-    ExecuteWithDelay(
+    CharacterShareLayout.run_after(
         attempt == 1 and 1 or 35,
         function()
-            ExecuteInGameThread(function()
                 if popup_state.widget ~= popup then
                     return
                 end
@@ -1703,7 +1711,6 @@ local function schedule_native_dialog_button_polish(
                         attempt + 1
                     )
                 end
-            end)
         end
     )
 end
@@ -1910,8 +1917,7 @@ local function show_native_dialog(
 
     -- Let the pooled CommonActivatableWidget finish reconstructing, then make
     -- sure the newly configured dialog is the visible/active one.
-    ExecuteWithDelay(1, function()
-        ExecuteInGameThread(function()
+    CharacterShareLayout.run_after(1, function()
             if popup_state.widget == popup then
                 pcall(function()
                     popup:SetVisibility(0)
@@ -1921,7 +1927,6 @@ local function show_native_dialog(
                     popup:ActivateWidget()
                 end)
             end
-        end)
     end)
 
     if not custom_actions_ok then
@@ -5370,8 +5375,7 @@ local function wait_for_new_character_to_close(
     local function poll()
         attempts = attempts + 1
 
-        ExecuteInGameThread(function()
-            local _, active = active_new_character_session(databank_vm)
+        local _, active = active_new_character_session(databank_vm)
 
             if active == nil then
                 log(
@@ -5391,11 +5395,10 @@ local function wait_for_new_character_to_close(
                 return
             end
 
-            ExecuteWithDelay(100, poll)
-        end)
+        CharacterShareLayout.run_after(100, poll)
     end
 
-    ExecuteWithDelay(100, poll)
+    CharacterShareLayout.run_after(100, poll)
 end
 
 local function close_active_new_character_before_overwrite(
@@ -5590,7 +5593,7 @@ local function wait_for_native_create_new_then_stage(
     attempt =
         attempt or 1
 
-    ExecuteInGameThread(function()
+    CharacterShareLayout.run_after(0, function()
         if navigation_generation
             ~= pending_import_navigation_generation then
             return
@@ -5655,7 +5658,7 @@ local function wait_for_native_create_new_then_stage(
                             )
                         )
 
-                        ExecuteWithDelay(
+                        CharacterShareLayout.run_after(
                             100,
                             function()
                                 wait_for_native_create_new_then_stage(
@@ -5737,7 +5740,7 @@ local function wait_for_native_create_new_then_stage(
             return
         end
 
-        ExecuteWithDelay(
+        CharacterShareLayout.run_after(
             100,
             function()
                 wait_for_native_create_new_then_stage(
@@ -5901,8 +5904,7 @@ local function verify_headless_created_character(
     attempt =
         attempt or 1
 
-    ExecuteInGameThread(function()
-        local expected_name =
+    local expected_name =
             payload_full_name(
                 payload
             )
@@ -6002,7 +6004,7 @@ local function verify_headless_created_character(
         end
 
         if attempt < 20 then
-            ExecuteWithDelay(
+            CharacterShareLayout.run_after(
                 100,
                 function()
                     verify_headless_created_character(
@@ -6067,12 +6069,11 @@ local function verify_headless_created_character(
             "NATIVE CREATE VERIFY UNCERTAIN: Confirm returned success, but no new character identity was observed in the target pool within 2 seconds."
         )
 
-        show_notice_popup(
+    show_notice_popup(
             "IMPORT STATUS UNCERTAIN",
             "The native create transaction returned success, but Character Share could not observe a new character entry in the target Databank pool. Check the list before retrying so you do not create a duplicate.",
             6000
         )
-    end)
 end
 
 local function wait_for_headless_draft_then_stage(
@@ -6090,8 +6091,7 @@ local function wait_for_headless_draft_then_stage(
     stable_checks =
         stable_checks or 0
 
-    ExecuteInGameThread(function()
-        local character_vm,
+    local character_vm,
             character_vm_err =
                 read_property(
                     new_vm,
@@ -6202,7 +6202,7 @@ local function wait_for_headless_draft_then_stage(
                     return
                 end
 
-                ExecuteWithDelay(
+                CharacterShareLayout.run_after(
                     100,
                     function()
                         wait_for_headless_draft_then_stage(
@@ -6248,7 +6248,7 @@ local function wait_for_headless_draft_then_stage(
             return
         end
 
-        ExecuteWithDelay(
+    CharacterShareLayout.run_after(
             100,
             function()
                 wait_for_headless_draft_then_stage(
@@ -6262,7 +6262,6 @@ local function wait_for_headless_draft_then_stage(
                 )
             end
         )
-    end)
 end
 
 local function begin_new_import_stage(payload)
@@ -6531,8 +6530,6 @@ local function begin_overwrite_stage(payload, match)
             attempt =
                 attempt + 1
 
-            ExecuteInGameThread(
-                function()
                     local character_vm,
                         character_vm_err =
                             read_property(
@@ -6788,11 +6785,9 @@ local function begin_overwrite_stage(payload, match)
                                 -- is not a disk-reload proof, but it does verify
                                 -- that the Databank's selected saved model still
                                 -- resolves to the imported state after Save.
-                                ExecuteWithDelay(
+                                CharacterShareLayout.run_after(
                                     150,
                                     function()
-                                        ExecuteInGameThread(
-                                            function()
                                                 try_call(
                                                     function()
                                                         match.vm:OnSelected()
@@ -6864,8 +6859,6 @@ local function begin_overwrite_stage(payload, match)
                                                 fail(
                                                     "SavePoolCharacter returned, but the re-selected saved character did not match the imported payload. The branch attempted to restore the original character."
                                                 )
-                                            end
-                                        )
                                     end
                                 )
 
@@ -6882,7 +6875,7 @@ local function begin_overwrite_stage(payload, match)
                     end
 
                     if attempt < 30 then
-                        ExecuteWithDelay(
+                        CharacterShareLayout.run_after(
                             100,
                             wait_for_selected_vm
                         )
@@ -6891,11 +6884,9 @@ local function begin_overwrite_stage(payload, match)
                             "The selected saved CharacterVM did not become ready."
                         )
                     end
-                end
-            )
         end
 
-        ExecuteWithDelay(
+        CharacterShareLayout.run_after(
             50,
             wait_for_selected_vm
         )
@@ -8592,97 +8583,6 @@ function CharacterShareLayout.set_import_icon_color(
     return changed > 0
 end
 
-function CharacterShareLayout.start_import_hover_monitor(
-    button,
-    canvas
-)
-    local identity =
-        databank_widget_identity(
-            button
-        )
-
-    local visual_state = nil
-
-    local function tick()
-        local entry =
-            databank_ui_state.buttons[
-                identity
-            ]
-
-        if entry == nil
-            or entry.action
-                ~= "databank_import"
-            or widget_parent(button) == nil then
-            return
-        end
-
-        local hovered = false
-        local focused = false
-
-        pcall(function()
-            hovered =
-                button:IsHovered()
-                    == true
-        end)
-
-        pcall(function()
-            focused =
-                button:HasKeyboardFocus()
-                    == true
-        end)
-
-        local wanted =
-            (hovered or focused)
-                and "hover"
-                or "normal"
-
-        if wanted ~= visual_state then
-            visual_state = wanted
-
-            CharacterShareLayout
-                .set_import_icon_color(
-                    canvas,
-                    wanted == "hover"
-                        and {
-                            R = 0.05,
-                            G = 0.06,
-                            B = 0.07,
-                            A = 1.0,
-                        }
-                        or {
-                            R = 0.82,
-                            G = 0.85,
-                            B = 0.86,
-                            A = 1.0,
-                        }
-                )
-        end
-
-        ExecuteWithDelay(40, function()
-            ExecuteInGameThread(
-                tick
-            )
-        end)
-    end
-
-    CharacterShareLayout
-        .set_import_icon_color(
-            canvas,
-            {
-                R = 0.82,
-                G = 0.85,
-                B = 0.86,
-                A = 1.0,
-            }
-        )
-
-    ExecuteWithDelay(40, function()
-        ExecuteInGameThread(
-            tick
-        )
-    end)
-end
-
 local function create_unregistered_databank_button(
     page,
     object_name
@@ -8719,7 +8619,8 @@ end
 local function register_attached_databank_button(
     button,
     action,
-    label
+    label,
+    icon_canvas
 )
     local identity =
         databank_widget_identity(button)
@@ -8727,6 +8628,8 @@ local function register_attached_databank_button(
     databank_ui_state.buttons[identity] = {
         action = action,
         label = label,
+        button = button,
+        iconCanvas = icon_canvas,
     }
 
     -- No delayed label callback: this UI is deliberately screen-scoped.
@@ -8742,6 +8645,97 @@ local function register_attached_databank_button(
             action
         )
     )
+end
+
+function CharacterShareLayout.set_databank_button_hover_state(
+    button_value,
+    hovered
+)
+    local button =
+        unwrap_hook_value(button_value)
+
+    if button == nil then
+        return
+    end
+
+    local identity =
+        databank_widget_identity(button)
+
+    local entry =
+        databank_ui_state.buttons[identity]
+
+    if entry == nil
+        or entry.action ~= "databank_import"
+        or entry.iconCanvas == nil then
+        return
+    end
+
+    CharacterShareLayout
+        .set_import_icon_color(
+            entry.iconCanvas,
+            hovered
+                and {
+                    R = 0.05,
+                    G = 0.06,
+                    B = 0.07,
+                    A = 1.0,
+                }
+                or {
+                    R = 0.82,
+                    G = 0.85,
+                    B = 0.86,
+                    A = 1.0,
+                }
+        )
+end
+
+function CharacterShareLayout.register_databank_hover_hooks()
+    if databank_ui_state.hoverHooksRegistered then
+        return true
+    end
+
+    local hover_ok, hover_id = pcall(function()
+        return RegisterHook(
+            "/Script/CommonUI.CommonButtonBase:BP_OnHovered",
+            function(self)
+                CharacterShareLayout
+                    .set_databank_button_hover_state(
+                    self,
+                    true
+                )
+            end
+        )
+    end)
+
+    local unhover_ok, unhover_id = pcall(function()
+        return RegisterHook(
+            "/Script/CommonUI.CommonButtonBase:BP_OnUnhovered",
+            function(self)
+                CharacterShareLayout
+                    .set_databank_button_hover_state(
+                    self,
+                    false
+                )
+            end
+        )
+    end)
+
+    if hover_ok and hover_id ~= nil
+        and unhover_ok and unhover_id ~= nil then
+        databank_ui_state.hoverHooksRegistered = true
+        log(
+            "Databank IMPORT icon uses event-driven hover tint hooks."
+        )
+        return true
+    end
+
+    log(
+        "WARNING: Databank IMPORT hover hooks unavailable: hover="
+            .. tostring(hover_id)
+            .. " unhover="
+            .. tostring(unhover_id)
+    )
+    return false
 end
 
 local function install_import_button(
@@ -8816,7 +8810,8 @@ local function install_import_button(
         register_attached_databank_button(
             import_button,
             "databank_import",
-            "IMPORT"
+            "IMPORT",
+            import_canvas
         )
 
         -- Registration updates native button text for ordinary action buttons.
@@ -8841,8 +8836,7 @@ local function install_import_button(
         -- during its delayed Construct/style pass. Enhanced Databank performs
         -- the same second cleanup for Create Folder; mirror it here so only the
         -- UMG file-import glyph remains visible.
-        ExecuteWithDelay(80, function()
-            ExecuteInGameThread(function()
+        CharacterShareLayout.run_after(80, function()
                 local entry =
                     databank_ui_state.buttons[
                         expected_identity
@@ -8862,14 +8856,21 @@ local function install_import_button(
                             import_button
                         )
                 end
-            end)
         end)
 
         CharacterShareLayout
-            .start_import_hover_monitor(
-                import_button,
-                import_canvas
+            .set_import_icon_color(
+                import_canvas,
+                {
+                    R = 0.82,
+                    G = 0.85,
+                    B = 0.86,
+                    A = 1.0,
+                }
             )
+
+        CharacterShareLayout
+            .register_databank_hover_hooks()
 
         page_state.importInstalled = true
         page_state.importRow = row
@@ -9767,12 +9768,11 @@ local function install_databank_ui_for_active_master(
     end
 
     -- One guarded retry only, scoped to this exact activation generation.
-    ExecuteWithDelay(100, function()
+    CharacterShareLayout.run_after(100, function()
         if generation ~= databank_ui_state.generation then
             return
         end
 
-        ExecuteInGameThread(function()
             if generation ~= databank_ui_state.generation
                 or databank_ui_state.activeMaster ~= master then
                 return
@@ -9798,7 +9798,6 @@ local function install_databank_ui_for_active_master(
                     )
                 )
             )
-        end)
     end)
 end
 
@@ -9987,18 +9986,16 @@ local function probe_for_databank_after_menu_click(
     local delay =
         delays[attempt + 1] or 250
 
-    ExecuteWithDelay(delay, function()
+    CharacterShareLayout.run_after(delay, function()
         if probe_generation
             ~= databank_entry_probe_generation then
             return
         end
 
-        ExecuteInGameThread(function()
-            probe_for_databank_after_menu_click(
-                probe_generation,
-                attempt + 1
-            )
-        end)
+        probe_for_databank_after_menu_click(
+            probe_generation,
+            attempt + 1
+        )
     end)
 end
 
@@ -10081,18 +10078,16 @@ local function handle_strategy_submenu_click(button)
         "Character Databank submenu click detected; starting bounded entry check."
     )
 
-    ExecuteWithDelay(150, function()
+    CharacterShareLayout.run_after(150, function()
         if probe_generation
             ~= databank_entry_probe_generation then
             return
         end
 
-        ExecuteInGameThread(function()
-            probe_for_databank_after_menu_click(
-                probe_generation,
-                1
-            )
-        end)
+        probe_for_databank_after_menu_click(
+            probe_generation,
+            1
+        )
     end)
 end
 
@@ -10181,8 +10176,7 @@ local function handle_popup_topnav_action(
 
     -- Give CommonUI one short native-outro window before opening the next
     -- Character Share dialog or entering the game's native Edit flow.
-    ExecuteWithDelay(120, function()
-        ExecuteInGameThread(function()
+    CharacterShareLayout.run_after(120, function()
             popup_state.capturedImportCode =
                 captured_import
 
@@ -10205,7 +10199,6 @@ local function handle_popup_topnav_action(
                     action
                 )
             end
-        end)
     end)
 
     return true
@@ -10293,8 +10286,7 @@ local function handle_databank_button_click(
             "Databank IMPORT queued until native button click unwinds."
         )
 
-        ExecuteWithDelay(1, function()
-            ExecuteInGameThread(function()
+        CharacterShareLayout.run_after(1, function()
                 databank_ui_state.importDispatchPending = false
 
                 if expected_generation
@@ -10333,7 +10325,6 @@ local function handle_databank_button_click(
                 )
 
                 show_import_popup()
-            end)
         end)
     elseif entry.action == "databank_share" then
         -- WBP_BoundActionButton runs additional native work after
@@ -10363,8 +10354,7 @@ local function handle_databank_button_click(
             "Databank SHARE queued until native BoundActionButton click unwinds."
         )
 
-        ExecuteWithDelay(1, function()
-            ExecuteInGameThread(function()
+        CharacterShareLayout.run_after(1, function()
                 databank_ui_state.shareDispatchPending = false
 
                 if expected_generation
@@ -10398,7 +10388,6 @@ local function handle_databank_button_click(
                 )
 
                 export_selected_character()
-            end)
         end)
     end
 end
@@ -10834,7 +10823,7 @@ handle_native_dialog_result = function(widget_value, result_value)
     finish_native_popup_hide(widget)
 
     retire_native_popup(widget, function()
-        ExecuteInGameThread(function()
+        CharacterShareLayout.run_after(0, function()
             popup_state.capturedImportCode = captured_import
             popup_state.capturedRenameFirst = captured_first
             popup_state.capturedRenameLast = captured_last
@@ -11014,6 +11003,7 @@ log(
 )
 
 register_databank_click_hook()
+CharacterShareLayout.register_databank_hover_hooks()
 
 local json_export_key_ok, json_export_key_err = pcall(function()
     RegisterKeyBind(Key.F7, { ModifierKey.CONTROL, ModifierKey.SHIFT }, function()
@@ -11021,7 +11011,7 @@ local json_export_key_ok, json_export_key_err = pcall(function()
             return
         end
 
-        ExecuteInGameThread(function()
+        CharacterShareLayout.run_after(0, function()
             export_selected_character_json()
         end)
     end)
@@ -11040,7 +11030,7 @@ local export_key_ok, export_key_err = pcall(function()
             return
         end
 
-        ExecuteInGameThread(function()
+        CharacterShareLayout.run_after(0, function()
             handle_export_key()
         end)
     end)
@@ -11056,7 +11046,7 @@ local preflight_key_ok, preflight_key_err = pcall(function()
             return
         end
 
-        ExecuteInGameThread(function()
+        CharacterShareLayout.run_after(0, function()
             handle_import_preflight_key()
         end)
     end)
@@ -11066,4 +11056,6 @@ if not preflight_key_ok then
     log("WARNING: import preflight hotkey registration failed: " .. tostring(preflight_key_err))
 end
 
-log("Character Share ready. v1.0.2")
+log(
+    "Character Share ready. v1.0.2. Deferred work uses UE4SS owned delayed game-thread actions; no legacy async timers or hover polling remain."
+)
