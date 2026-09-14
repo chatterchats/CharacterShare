@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.0.3]
+
 ### Added
 
 - Write Character Share diagnostics to a dedicated `character_share.log` beside
