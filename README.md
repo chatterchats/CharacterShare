@@ -159,7 +159,10 @@ The raw JSON export is a debugging aid only. Normal imports accept ZC1 share cod
 
 ## Troubleshooting
 
-If an import fails, Character Share reports the validation or staging reason in-game and writes additional detail to `UE4SS.log`.
+If an import fails, Character Share reports the validation or staging reason
+in-game and writes additional detail to both `UE4SS.log` and the dedicated
+`character_share.log` beside the installed mod. The dedicated log includes UTC
+timestamps, session generations, and workflow transitions for crash correlation.
 
 Common cases include:
 
@@ -168,7 +171,9 @@ Common cases include:
 - **Missing raw asset** — the code references a mod-added asset that is not installed or available locally.
 - **Unknown non-empty slot** — the code contains a future/modded slot the current game/editor cannot safely stage.
 
-When reporting a crash or reproducible import problem, include the relevant `UE4SS.log`, the share code if it is safe to share, and the game build/mod setup needed to reproduce it.
+When reporting a crash or reproducible import problem, include the relevant
+`character_share.log` and `UE4SS.log`, the share code if it is safe to share,
+and the game build/mod setup needed to reproduce it.
 
 ## Repository layout
 

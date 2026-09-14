@@ -36,6 +36,12 @@ return function(ctx)
         ctx.state.databank_ui_state.importDispatchPending = false
         ctx.state.databank_session_active = false
 
+        ctx.logging.transition(
+            "databank",
+            "inactive",
+            "generation=" .. tostring(ctx.state.databank_ui_state.generation)
+                .. "; reason=" .. tostring(reason or "navigation")
+        )
         ctx.logging.log(
             "Character Databank session paused; preserving installed controls for reusable screen. reason="
                 .. tostring(reason or "navigation")
@@ -165,6 +171,12 @@ return function(ctx)
         local generation =
             ctx.state.databank_ui_state.generation
 
+        ctx.logging.transition(
+            "databank",
+            "active",
+            "generation=" .. tostring(generation)
+                .. "; master=" .. tostring(master_identity)
+        )
         ctx.logging.log(
             "Character Databank ENTER confirmed after main-menu click: "
                 .. tostring(master_identity)

@@ -6,8 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Write Character Share diagnostics to a dedicated `character_share.log` beside
+  the installed mod while continuing to mirror messages to the shared UE4SS log.
+- Prefix dedicated-log entries with UTC time plus runtime, Databank, and import
+  generations, and record explicit Databank, import, overwrite, export, and
+  reload workflow transitions for crash correlation.
+
 ### Changed
 
+- Keep Character Databank discovery activation-based; dedicated diagnostics do
+  not add `NotifyOnNewObject` observers during Blueprint/widget construction.
 - Split the entry script into focused modules for actions, hook registration,
   logging, popups, Databank controls, sharing, import validation and dialogs,
   character staging, import/create and overwrite workflows, and lifecycle hooks.

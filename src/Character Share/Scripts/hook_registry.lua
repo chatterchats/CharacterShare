@@ -13,6 +13,7 @@ function M.start(key, options)
         bindings = previous and previous.bindings or {},
         pending_ui = previous and previous.pending_ui or {},
         resume = previous and previous.resume or nil,
+        generation = (previous and previous.generation or 0) + 1,
         clear_all = options.clear_all ~= false,
     }
 

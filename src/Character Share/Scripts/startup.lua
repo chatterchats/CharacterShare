@@ -8,7 +8,14 @@ return function(ctx)
 
     ctx.layout.run_after(0, function() ctx.runtime:cleanup_ui() end)
 
-    ctx.logging.log(string.format("Character Share v%s loading.", ctx.config.VERSION))
+    ctx.logging.transition("runtime", "loading", "version=" .. ctx.config.VERSION)
+    if ctx.logging.LOG_PATH then
+        ctx.logging.log("Dedicated log: " .. ctx.logging.LOG_PATH)
+    else
+        ctx.logging.log(
+            "WARNING: dedicated character_share.log could not be opened; diagnostics remain available in UE4SS.log."
+        )
+    end
 
     ctx.debug_hotkeys.register_debug_hotkey_console_command()
 
@@ -95,4 +102,5 @@ return function(ctx)
     ctx.logging.log(
         "Character Share ready. v" .. ctx.config.VERSION .. ". Deferred work uses UE4SS owned delayed game-thread actions; no legacy async timers or hover polling remain."
     )
+    ctx.logging.transition("runtime", "ready", "activation-based Databank discovery")
 end

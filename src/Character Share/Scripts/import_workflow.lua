@@ -174,6 +174,7 @@ return function(ctx)
             "AUTO IMPORT FAILED: "
                 .. tostring(message)
         )
+        ctx.logging.transition("import", "failed", message)
 
         if new_vm ~= nil then
             cancel_auto_created_new_character(
@@ -972,6 +973,12 @@ return function(ctx)
     end
 
     function ctx.import_workflow.begin_new_import_stage(payload)
+        ctx.logging.transition(
+            "import",
+            "creating",
+            payload and ctx.import_validation.payload_full_name(payload)
+                or "missing payload"
+        )
         ctx.popup.safe_remove_popup()
 
         ctx.layout.cancel_action_group(

@@ -256,6 +256,7 @@ return function(ctx)
     end
 
     function ctx.sharing.export_selected_character()
+        ctx.logging.transition("export", "capturing", "selected character")
         ctx.logging.log("============================================================")
         ctx.logging.log("EXPORT START")
 
@@ -263,6 +264,7 @@ return function(ctx)
             ctx.sharing.capture_selected_character_payload()
 
         if validated == nil then
+            ctx.logging.transition("export", "failed", "selected character unavailable")
             ctx.logging.log("============================================================")
             return
         end
@@ -274,6 +276,7 @@ return function(ctx)
                 )
 
         if share_code == nil then
+            ctx.logging.transition("export", "failed", "ZC1 encoding failed")
             ctx.logging.log(
                 "Export aborted: ZC1 encoding failed: "
                     .. tostring(compact_stats)
@@ -374,6 +377,7 @@ return function(ctx)
 
         ctx.popup.show_share_popup(share_code)
 
+        ctx.logging.transition("export", "complete", "share popup opened")
         ctx.logging.log("EXPORT COMPLETE")
         ctx.logging.log("============================================================")
     end

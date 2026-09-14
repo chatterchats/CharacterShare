@@ -27,6 +27,7 @@ function RegisterConsoleCommandHandler(name, callback)
 end
 
 local first = Runtime.start("TestRuntime", { clear_all = false })
+assert(first.generation == 1)
 local calls, cleaned = 0, 0
 local pre, post = first:register_hook("/Script/Test:Event", function() calls = calls + 1 end)
 local again_pre, again_post = first:register_hook("/Script/Test:Event", function() error("duplicate") end)
@@ -42,6 +43,7 @@ first:finish_action(11)
 first.ui_cleanup = function() cleaned = cleaned + 1 end
 
 local second = Runtime.start("TestRuntime", { clear_all = false })
+assert(second.generation == 2)
 assert(not first.alive and second.alive)
 assert(hooks["/Script/Test:Event"] == nil and cancelled[10] and not cancelled[11])
 assert(cleaned == 0, "UI cleanup must wait for game-thread execution")
@@ -63,6 +65,7 @@ local ok = pcall(Runtime.start, "TestRuntime")
 assert(not ok and not second.alive and second.hooks["/Script/Test:Retry"])
 fail_unregister = false
 local third = Runtime.start("TestRuntime")
+assert(third.generation == 3)
 assert(third.alive and hooks["/Script/Test:Retry"] == nil and clear_count == 1)
 
 -- Exercise the actual production scheduler with a mock engine queue.

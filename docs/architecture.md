@@ -8,7 +8,7 @@ and initializes the factories. Every module is shipped inside the existing
 | Modules | Responsibility |
 | --- | --- |
 | `hook_registry.lua`, `actions.lua` | Own hook IDs, guarded callbacks, delayed handles, cancellation, and reload teardown. |
-| `common.lua`, `logging.lua`, `state.lua` | UObject helpers, logging, mutable session state, and callback slots. |
+| `common.lua`, `logging.lua`, `state.lua` | UObject helpers, dedicated session/workflow logging, mutable session state, and callback slots. |
 | `popup.lua`, `popup_dispatch.lua` | Native dialog construction, text capture, retirement, result/action routing. |
 | `sharing.lua` | Export the selected character and show its share code. |
 | `import_validation.lua`, `import_dialogs.lua` | Resolve import data, detect conflicts, and present import choices. |
@@ -42,6 +42,9 @@ retired context, not the new instance. `CharacterShareLayout` remains a compatib
 alias to the current layout/action API, and the old `reload_runtime.lua` import
 forwards to the registry. The native import/save operations, ZC1 format,
 cancellation groups, validity checks, and widget identifiers are unchanged.
+The dedicated log is observational only: Databank discovery remains driven by
+the bounded activation/navigation probe, never `NotifyOnNewObject` during
+Blueprint or WidgetTree construction.
 
 ## Local checks
 

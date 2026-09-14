@@ -3,6 +3,12 @@
 -- Context: character_staging, common, dependencies, import_validation, import_workflow, layout, logging, overwrite_workflow, popup, sharing.
 return function(ctx)
     function ctx.overwrite_workflow.begin_overwrite_stage(payload, match)
+        ctx.logging.transition(
+            "overwrite",
+            "starting",
+            payload and ctx.import_validation.payload_full_name(payload)
+                or "missing payload"
+        )
         ctx.popup.safe_remove_popup()
 
         ctx.layout.cancel_action_group(
@@ -48,6 +54,7 @@ return function(ctx)
                         message
                     )
             )
+            ctx.logging.transition("overwrite", "failed", message)
 
             ctx.popup.show_notice_popup(
                 "OVERWRITE FAILED",
@@ -425,6 +432,11 @@ return function(ctx)
                                                     if saved_code ~= nil
                                                         and saved_code
                                                             == desired_code then
+                                                        ctx.logging.transition(
+                                                            "overwrite",
+                                                            "complete",
+                                                            ctx.import_validation.payload_full_name(payload)
+                                                        )
                                                         ctx.logging.log(
                                                             "NATIVE OVERWRITE VERIFIED: re-selected saved CharacterVM exactly matches the imported payload after SavePoolCharacter."
                                                         )

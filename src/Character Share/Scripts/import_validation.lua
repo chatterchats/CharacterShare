@@ -105,6 +105,11 @@ return function(ctx)
         clear_pending_name_override(
             "import session ended"
         )
+        ctx.logging.transition(
+            "import",
+            "idle",
+            "generation=" .. tostring(ctx.state.pending_import_navigation_generation)
+        )
     end
 
     function ctx.import_validation.normalize_character_name(name)
@@ -766,11 +771,13 @@ return function(ctx)
     end
 
     function ctx.import_validation.import_preflight()
+        ctx.logging.transition("import", "validating", "preflight started")
         ctx.logging.log("============================================================")
         ctx.logging.log("IMPORT PREFLIGHT START")
 
         local code, read_err = ctx.popup.read_import_code()
         if read_err ~= nil then
+            ctx.logging.transition("import", "failed", read_err)
             ctx.logging.log("IMPORT PREFLIGHT FAILED: " .. read_err)
             show_import_error(read_err)
             ctx.logging.log("============================================================")
@@ -779,6 +786,7 @@ return function(ctx)
 
         local decoded, decode_err = ctx.sharing.decode_share_code(code)
         if decode_err ~= nil then
+            ctx.logging.transition("import", "failed", decode_err)
             ctx.logging.log("IMPORT PREFLIGHT FAILED: " .. decode_err)
             show_import_error(decode_err)
             ctx.logging.log("============================================================")
@@ -793,6 +801,12 @@ return function(ctx)
         )
 
         ctx.state.pending_import_payload = decoded.payload
+        ctx.logging.transition(
+            "import",
+            "validated",
+            "generation=" .. tostring(ctx.state.pending_import_navigation_generation)
+                .. "; character=" .. ctx.import_validation.payload_full_name(decoded.payload)
+        )
 
         ctx.sharing.log_payload_summary(decoded.payload, "VALID IMPORT PAYLOAD")
 
