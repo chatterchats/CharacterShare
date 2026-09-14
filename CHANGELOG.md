@@ -20,6 +20,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Deduplicate import conflicts by saved character GUID rather than ViewModel
+  identity. A moved character's stale Default-pool copy is no longer counted
+  as a second character; genuinely different GUIDs remain separate matches.
+- Check current native pool ownership when selecting conflict/overwrite targets,
+  ignore deleted GUIDs, and fail closed when identity, ownership, or the owning
+  pool's ViewModel cannot be verified. Snapshot reads retain only scalar values.
+- Add regression tests for moved/deleted characters, real same-name duplicates,
+  unknown IDs, incomplete ownership snapshots, and stale overwrite candidates.
+
 - Added reload teardown with a central hook registry retaining both UE4SS hook
   IDs, cancellation of grouped and ungrouped actions, and optional current-mod
   delayed-action clearing. Retired callbacks are disabled.

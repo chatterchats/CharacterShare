@@ -12,6 +12,7 @@ local modules = {
     "actions",
     "popup",
     "sharing",
+    "pool_identity",
     "import_validation",
     "import_dialogs",
     "character_staging",

@@ -1,6 +1,6 @@
 -- Character Share: import validation.
 -- Initialized once per mod instance; shared references use explicit ctx fields.
--- Context: common, import_validation, layout, logging, popup, sharing, state.
+-- Context: common, import_validation, layout, logging, pool_identity, popup, sharing, state.
 return function(ctx)
     local function clear_pending_name_override(reason)
         if ctx.state.pending_name_override ~= nil then
@@ -144,8 +144,8 @@ return function(ctx)
     -- UObject path/name helper, not the game's FText-returning UFunction.
     --
     -- Resolve the game's UFunction explicitly and call it with the pool-character
-    -- ViewModel as context. This lets duplicate detection stay completely out of
-    -- FPoolCharacterData/CustomizationSlots.
+    -- ViewModel as context. Names still avoid CustomizationSlots; identity reads
+    -- only the scalar PoolCharacterData.PoolCharacterID through pool_identity.
     local pool_character_get_full_name_function = nil
 
     local pool_character_get_full_name_lookup_attempted = false
@@ -342,115 +342,96 @@ return function(ctx)
     end
 
     function ctx.import_validation.find_duplicate_characters(databank_vm, payload)
-        local target_name = ctx.import_validation.payload_full_name(payload)
-        local normalized_target = ctx.import_validation.normalize_character_name(target_name)
-        local matches = {}
-        local unreadable = 0
-        local total_seen = 0
-        local seen_character_vms = {}
+        local target = ctx.import_validation.normalize_character_name(
+            ctx.import_validation.payload_full_name(payload))
+        local matches, seen_characters, unresolved_owners = {}, {}, {}
+        local unreadable, total_seen = 0, 0
+        local owners, owner_err = ctx.pool_identity.owner_snapshot()
+        if owners == nil then
+            -- Keep useful GUID-deduplicated name matches, but don't permit a
+            -- destructive overwrite or claim a new name is safe from partial data.
+            unreadable = unreadable + 1
+            ctx.logging.log("Duplicate check: native ownership unavailable: " .. tostring(owner_err))
+        end
 
         local pools = ctx.import_validation.collect_character_pools(databank_vm)
         ctx.logging.log(string.format("Duplicate check: scanning %d character pool(s).", #pools))
-
         for _, pool in ipairs(pools) do
             local character_vms, characters_err =
                 ctx.common.read_property(pool.vm, "PoolCharacterViewModels")
-
-            if characters_err == nil and character_vms ~= nil then
-                local pool_count = ctx.common.array_count(character_vms)
-
-                ctx.logging.log(
-                    string.format(
-                        "Duplicate check: %s has %d character(s).",
-                        pool.source,
-                        pool_count
-                    )
-                )
-
+            if characters_err ~= nil or character_vms == nil then
+                unreadable = unreadable + 1
+            else
                 local reflected_count, enumerated_count =
-                    ctx.import_validation.for_each_counted_array(
-                        character_vms,
-                        function(index, character_vm)
-                            local vm_identity =
-                                ctx.import_validation.array_object_identity(character_vm)
-
-                            if seen_character_vms[vm_identity] then
-                                ctx.logging.log(
-                                    string.format(
-                                        "Duplicate check: skipped repeated VM %s from %s.",
-                                        vm_identity,
-                                        pool.source
-                                    )
-                                )
-                                return
-                            end
-
-                            seen_character_vms[vm_identity] = true
-                            total_seen = total_seen + 1
-
-                            local candidate_name, candidate_err =
-                                ctx.import_validation.get_pool_character_display_name(character_vm)
-
-                            if candidate_err ~= nil or candidate_name == nil then
-                                unreadable = unreadable + 1
-                                ctx.logging.log(
-                                    string.format(
-                                        "Duplicate candidate[%d]: %s / %s / <unreadable>",
-                                        index,
-                                        pool.characterType,
-                                        pool.source
-                                    )
-                                )
-                                return
-                            end
-
-                            ctx.logging.log(
-                                string.format(
-                                    "Duplicate candidate[%d]: %s / %s / %s",
-                                    index,
-                                    pool.characterType,
-                                    pool.source,
-                                    candidate_name
-                                )
-                            )
-
-                            if ctx.import_validation.normalize_character_name(candidate_name)
-                                == normalized_target then
-                                table.insert(matches, {
-                                    name = candidate_name,
-                                    characterType = pool.characterType,
-                                    pool = pool.source,
-                                    vm = character_vm,
-                                })
-                            end
+                    ctx.import_validation.for_each_counted_array(character_vms, function(index, value)
+                        local vm = ctx.common.unwrap_remote_value(value)
+                        if not ctx.layout.uobject_is_valid(vm) then
+                            unreadable = unreadable + 1
+                            return
                         end
-                    )
+                        local vm_identity = ctx.import_validation.array_object_identity(vm)
+                        local guid = ctx.pool_identity.character_guid(vm)
+                        local owner = owners and guid and owners[guid] or nil
+                        if owners ~= nil and guid ~= nil and owner == nil then
+                            ctx.logging.log("Duplicate check: skipped deleted/non-authoritative GUID " .. guid)
+                            return
+                        end
+                        local name, name_err = ctx.import_validation.get_pool_character_display_name(vm)
+                        if name_err ~= nil or name == nil then
+                            unreadable = unreadable + 1
+                            return
+                        end
+                        local name_matches = ctx.import_validation.normalize_character_name(name) == target
+                        local pool_name_value = select(1, ctx.common.read_property(pool.vm, "PoolName"))
+                        local pool_name = pool_name_value and ctx.common.text_value(pool_name_value) or nil
+                        local identity = guid and (pool.characterType .. ":" .. guid) or ("vm:" .. vm_identity)
+                        local candidate = {
+                            name = name, characterType = pool.characterType,
+                            pool = pool_name or pool.source, vm = vm, guid = guid,
+                        }
 
+                        if owner ~= nil and pool_name ~= owner then
+                            ctx.logging.log("Duplicate check: skipped stale pool copy of " .. guid
+                                .. " in '" .. tostring(pool_name) .. "'; owner='" .. owner .. "'.")
+                            -- If the owning pool's VM hasn't appeared yet, do not
+                            -- mistake this for an available name. Keep the conflict,
+                            -- but disable overwrite until the owning VM is readable.
+                            if name_matches then unresolved_owners[identity] = candidate end
+                            return
+                        end
+                        if seen_characters[identity] then
+                            ctx.logging.log("Duplicate check: skipped repeated character GUID " .. tostring(guid))
+                            return
+                        end
+                        seen_characters[identity] = true
+                        total_seen = total_seen + 1
+                        if guid == nil then
+                            -- Unknown/zero IDs must not merge distinct characters.
+                            unreadable = unreadable + 1
+                            ctx.logging.log("Duplicate check: GUID unavailable for " .. vm_identity)
+                        end
+                        ctx.logging.log(string.format("Duplicate candidate[%d]: %s / %s / %s / guid=%s",
+                            index, pool.characterType, candidate.pool, name, tostring(guid)))
+                        if name_matches then table.insert(matches, candidate) end
+                    end)
                 if enumerated_count < reflected_count then
-                    local missing = reflected_count - enumerated_count
-                    unreadable = unreadable + missing
-
-                    ctx.logging.log(
-                        string.format(
-                            "Duplicate check warning: %s reflected %d character(s) but only %d unique VM(s) were enumerable.",
-                            pool.source,
-                            reflected_count,
-                            enumerated_count
-                        )
-                    )
+                    unreadable = unreadable + reflected_count - enumerated_count
+                    ctx.logging.log("Duplicate check: incomplete VM enumeration in " .. pool.source)
                 end
             end
         end
-
-        ctx.logging.log(
-            string.format(
-                "Duplicate check complete: %d unique character(s) inspected, %d match(es), %d unreadable.",
-                total_seen,
-                #matches,
-                unreadable
-            )
-        )
-
+        for identity, candidate in pairs(unresolved_owners) do
+            if not seen_characters[identity] then
+                table.insert(matches, candidate)
+                total_seen = total_seen + 1
+                unreadable = unreadable + 1
+                ctx.logging.log("Duplicate check: owning-pool VM not ready for GUID " .. candidate.guid
+                    .. "; overwrite disabled.")
+            end
+        end
+        ctx.logging.log(string.format(
+            "Duplicate check complete: %d unique character(s) inspected, %d match(es), %d unreadable.",
+            total_seen, #matches, unreadable))
         return matches, unreadable
     end
 

@@ -32,8 +32,9 @@ ModifierKey = { CONTROL = 1, SHIFT = 2 }
 function MakeActionHandle() next_id = next_id + 1; return next_id end
 function ExecuteInGameThreadWithDelay(handle, delay, callback)
     assert(type(handle) == "number" and type(delay) == "number")
-    queue[handle] = callback
+    if not queue[handle] then queue[handle] = callback end
 end
+-- UE4SS retains the first callback; retriggering only resets the due time.
 RetriggerableExecuteInGameThreadWithDelay = ExecuteInGameThreadWithDelay
 function CancelDelayedAction(handle) cancelled[handle] = true; return true end
 function IsValidDelayedActionHandle(handle) return not cancelled[handle] end

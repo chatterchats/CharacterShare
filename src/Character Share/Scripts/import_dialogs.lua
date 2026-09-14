@@ -52,7 +52,16 @@ return function(ctx)
         local actions = {}
         local body = nil
 
-        if #same_type == 1 and unreadable == 0 then
+        if unreadable > 0 then
+            body = string.format(
+                "Found %d existing character(s) named %s, but some character data or current pool ownership could not be verified. Overwrite is unavailable until the Databank is synchronized. Rename the import or cancel.",
+                #matches, display_name
+            )
+            actions = {
+                { id = "duplicate_rename", label = "RENAME" },
+                { id = "cancel_import", label = "CANCEL" },
+            }
+        elseif #same_type == 1 then
             body = string.format(
                 "%s\n\nA character named %s already exists.\n\nOVERWRITE replaces that character with this import.\nRENAME imports this character as a new copy.",
                 ctx.import_validation.import_summary(payload),

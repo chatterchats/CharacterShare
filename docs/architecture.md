@@ -12,6 +12,7 @@ and initializes the factories. Every module is shipped inside the existing
 | `popup.lua`, `popup_dispatch.lua` | Native dialog construction, text capture, retirement, result/action routing. |
 | `sharing.lua` | Export the selected character and show its share code. |
 | `import_validation.lua`, `import_dialogs.lua` | Resolve import data, detect conflicts, and present import choices. |
+| `pool_identity.lua` | Read GUIDs and a complete scalar native ownership snapshot for conflict/overwrite selection. |
 | `character_staging.lua` | Apply names, slots, and character data to native ViewModels. |
 | `import_workflow.lua` | Native new-character creation, staging, confirmation, verification, and cancellation. |
 | `overwrite_workflow.lua` | Stage and save an existing character, then verify the overwrite. |
@@ -50,6 +51,7 @@ Run from the repository root:
 luajit tests/reload_runtime_test.lua "src/Character Share/Scripts"
 luajit tests/widget_reload_test.lua "src/Character Share/Scripts"
 luajit tests/module_bootstrap_test.lua "src/Character Share/Scripts"
+luajit tests/duplicate_identity_test.lua "src/Character Share/Scripts"
 python3 tests/version_bump_test.py
 ```
 
