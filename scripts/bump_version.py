@@ -27,10 +27,6 @@ MAIN_VERSION_PATTERN = re.compile(
     r'^(?P<prefix>\s*local\s+VERSION\s*=\s*")(?P<version>[^"]+)(?P<suffix>".*)$',
     re.MULTILINE,
 )
-READY_LOG_VERSION_PATTERN = re.compile(
-    r'^(?P<prefix>\s*log\("Character Share ready\. v)(?P<version>[^"]+)(?P<suffix>"\)\s*)$',
-    re.MULTILINE,
-)
 
 
 def parse_args() -> argparse.Namespace:
@@ -175,20 +171,16 @@ def main() -> None:
         ZCOM_MOD: extract_version(ZCOM_MOD, texts[ZCOM_MOD], JSON_VERSION_PATTERN),
         MAIN: extract_version(MAIN, texts[MAIN], MAIN_VERSION_PATTERN),
     }
-    ready_log_version = extract_version(
-        MAIN, texts[MAIN], READY_LOG_VERSION_PATTERN
-    )
     if modinfo_json.get("version") != versions[MODINFO]:
         raise SystemExit("Parsed modinfo.json version does not match its version declaration")
     if zcom_mod_json.get("version") != versions[ZCOM_MOD]:
         raise SystemExit("Parsed zcom-mod.json version does not match its version declaration")
 
-    unique_versions = set(versions.values()) | {ready_log_version}
+    unique_versions = set(versions.values())
     if len(unique_versions) != 1:
         details = ", ".join(
             f"{path.relative_to(ROOT)}: {version}" for path, version in versions.items()
         )
-        details += f", {MAIN.relative_to(ROOT)} ready log: {ready_log_version}"
         raise SystemExit(f"Version declarations do not match: {details}")
 
     current_version = unique_versions.pop()
@@ -206,13 +198,6 @@ def main() -> None:
         ),
         CHANGELOG: promote_unreleased(texts[CHANGELOG], next_version),
     }
-    updates[MAIN] = replace_version(
-        MAIN,
-        updates[MAIN],
-        READY_LOG_VERSION_PATTERN,
-        current_version,
-        next_version,
-    )
 
     main_header = f"-- Character Share v{current_version}"
     if main_header in updates[MAIN]:

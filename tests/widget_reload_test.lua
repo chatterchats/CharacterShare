@@ -1,77 +1,64 @@
--- Verify surviving controls are adopted before any clone/layout path is reached.
+-- Exercise real UI factories; surviving controls must never reach the clone path.
 -- Run: luajit tests/widget_reload_test.lua "<Scripts directory>"
 local scripts = assert(arg[1])
-local file = assert(io.open(scripts .. "/main.lua", "r"))
-local main = file:read("*a")
-file:close()
 local function object(name)
     return { name = name, IsValid = function() return true end,
         GetParent = function() return {} end }
 end
-local button, glyph, overlay, spacer = object("button"), object("glyph"), object("overlay"), object("spacer")
-local registered = 0
+local button, glyph, overlay = object("button"), object("glyph"), object("overlay")
 local function valid(value) return value ~= nil and value:IsValid() end
 local function try_call(callback)
     local ok, value = pcall(callback)
     if ok then return value end
     return nil, value
 end
-local env = setmetatable({
-    log = function() end, try_call = try_call, unwrap = function(value) return value end,
-    uobject_is_valid = valid, object_name = function(value) return value.name end,
-    register_folder_button = function(value)
-        assert(value == button)
-        registered = registered + 1
-    end,
-    style_create_folder_icon_button = function(_, value) assert(value == button) end,
-    set_folder_icon_color = function() end,
-    CREATE_FOLDER_BUTTON_MARKER = "button",
-    find_tree_widget = function(_, name)
-        if name == "button" then return button end
-        if name == "EnhancedDatabank_FolderPlusCanvas" then return glyph end
-        return overlay
-    end,
-    register_attached_databank_button = function(value)
-        assert(value == button)
-        registered = registered + 1
-    end,
-    CharacterShareLayout = {
-        uobject_is_valid = valid,
-        find_widget = function(_, name)
+for _ = 1, 2 do
+    local ctx = {
+        runtime = {}, config = {}, state = {}, common = {}, logging = { log = function() end },
+        folder_ui = {}, folder_icons = {}, widget_helpers = {}, databank_ui = {},
+        layout = {}, dependencies = {},
+    }
+    ctx.common.try_call = try_call
+    ctx.common.unwrap = function(value) return value end
+    ctx.common.uobject_is_valid = valid
+    ctx.common.object_name = function(value) return value.name end
+    ctx.widget_helpers.clone_widget_like = function() error("must not clone a surviving control") end
+    if scripts:find("Enhanced", 1, true) then
+        assert(loadfile(scripts .. "/state.lua"))()(ctx)
+        ctx.widget_helpers.find_tree_widget = function(_, name)
+            if name == ctx.state.CREATE_FOLDER_BUTTON_MARKER then return button end
+            if name == "EnhancedDatabank_FolderPlusCanvas" then return glyph end
+            return overlay
+        end
+        ctx.folder_icons.style_create_folder_icon_button = function(_, value) assert(value == button) end
+        ctx.folder_icons.set_folder_icon_color = function() end
+        assert(loadfile(scripts .. "/folder_ui.lua"))()(ctx)
+        assert(ctx.folder_ui.ensure_create_folder_control(object("page")))
+        assert(ctx.state.folder_ui_state.iconCanvas == glyph)
+        assert(ctx.state.folder_ui_state.button == button)
+        assert(ctx.state.folder_ui_state.buttons.button)
+    else
+        ctx.state.databank_ui_state = { buttons = {} }
+        ctx.widget_helpers.databank_widget_identity = function(value) return value.name end
+        ctx.widget_helpers.set_databank_button_text = function(value) assert(value == button) end
+        ctx.layout.uobject_is_valid = valid
+        ctx.layout.find_widget = function(_, name)
             if name:find("Button", 1, true) then return button end
             if name:find("Canvas", 1, true) then return glyph end
-            return spacer
-        end,
-        set_clone_label = function(value, text) assert(value == button and text == "") end,
-        hide_single_clone_image = function(value) assert(value == button) end,
-        initialize_share_visual = function(value) assert(value == button) end,
-    },
-}, { __index = _G })
-local function extract(name, stop)
-    local begin_pos = assert(main:find("local function " .. name .. "(", 1, true))
-    local end_pos = assert(main:find(stop, begin_pos, true))
-    local chunk = assert(loadstring(main:sub(begin_pos, end_pos - 1)
-        .. '\nerror("surviving control reached clone path")\nend\nreturn ' .. name))
-    setfenv(chunk, env)
-    return chunk()
-end
-if main:find("local function ensure_create_folder_control(", 1, true) then
-    local ensure = extract("ensure_create_folder_control", "    local create_new =")
-    for _ = 1, 2 do
-        env.folder_ui_state = {} -- simulate fresh Lua UI state on every reload
-        assert(ensure(object("page")))
-        assert(env.folder_ui_state.iconCanvas == glyph)
-    end
-    assert(registered == 2)
-else
-    local import = extract("install_import_button", "    local create_new =")
-    local share = extract("install_share_button", "    local edit =")
-    for _ = 1, 2 do
+            return overlay
+        end
+        ctx.layout.set_clone_label = function(value, label) assert(value == button and label == "") end
+        ctx.layout.hide_single_clone_image = function(value) assert(value == button) end
+        ctx.layout.initialize_share_visual = function(value) assert(value == button) end
+        ctx.layout.create_user_widget_like = ctx.widget_helpers.clone_widget_like
+        assert(loadfile(scripts .. "/databank_ui.lua"))()(ctx)
         local state = {}
-        assert(import(object("page"), state))
-        assert(share(object("page"), state))
+        assert(ctx.databank_ui.install_import_button(object("page"), state))
+        assert(ctx.state.databank_ui_state.buttons.button.action == "databank_import")
+        assert(ctx.state.databank_ui_state.buttons.button.iconCanvas == glyph)
+        assert(ctx.databank_ui.install_share_button(object("page"), state))
+        assert(ctx.state.databank_ui_state.buttons.button.action == "databank_share")
         assert(state.importInstalled and state.shareInstalled and state.shareButton == button)
     end
-    assert(registered == 4)
 end
 print("widget reload adoption tests passed")

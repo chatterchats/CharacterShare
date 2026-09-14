@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Split the entry script into focused modules for actions, hook registration,
+  logging, popups, Databank controls, sharing, import validation and dialogs,
+  character staging, import/create and overwrite workflows, and lifecycle hooks.
+- Use a fresh explicit module context per startup to keep mutable workflow
+  state shared correctly without approaching Lua's 200-local limit.
+- Test the production module factories and full bootstrap/reload wiring
+  directly, including surviving-widget adoption.
+- Read the ready-log version from the bootstrap version constant and adapt the
+  version-bump helper to the modular entry script.
+
 ### Fixed
 
 - Added reload teardown with a central hook registry retaining both UE4SS hook

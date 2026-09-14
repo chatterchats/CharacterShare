@@ -1,6 +1,6 @@
 -- Run from repository root: luajit tests/reload_runtime_test.lua "<Scripts directory>"
 local scripts = assert(arg[1], "pass the mod Scripts directory")
-local Runtime = assert(loadfile(scripts .. "/reload_runtime.lua"))()
+local Runtime = assert(loadfile(scripts .. "/hook_registry.lua"))()
 local hooks, cancelled, keys, consoles = {}, {}, {}, {}
 local clear_count, next_id = 0, 0
 local fail_unregister = false
@@ -66,38 +66,31 @@ local third = Runtime.start("TestRuntime")
 assert(third.alive and hooks["/Script/Test:Retry"] == nil and clear_count == 1)
 
 -- Exercise the actual production scheduler with a mock engine queue.
-local file = assert(io.open(scripts .. "/main.lua", "r"))
-local main = file:read("*a")
-file:close()
-local name, runtime_key, start_marker, end_marker
-if main:find("EnhancedDatabankActions.schedule_after", 1, true) then
-    name, runtime_key = "EnhancedDatabankActions", "EnhancedDatabankRuntime"
-    start_marker = "function EnhancedDatabankActions.schedule_after"
-    end_marker = "local function run_on_game_thread_after"
-else
-    name, runtime_key = "CharacterShareLayout", "CharacterShareRuntime"
-    start_marker = "function CharacterShareLayout.schedule_after"
-    end_marker = "function CharacterShareLayout.run_after"
-end
-local start_pos = assert(main:find(start_marker, 1, true))
-local end_pos = assert(main:find(end_marker, start_pos, true))
 local queue = {}
-local env = setmetatable({
-    PREFIX = "[test]", log = function() end,
-    uobject_is_valid = function(value) return value ~= nil and value.valid == true end,
-    MakeActionHandle = function() next_id = next_id + 1; return next_id end,
-    ExecuteInGameThreadWithDelay = function(handle, delay, callback)
-        assert(type(handle) == "number" and type(delay) == "number")
-        queue[handle] = callback
-    end,
-}, { __index = _G })
-env[name] = { groups = {}, actionGroups = {}, uobject_is_valid = env.uobject_is_valid }
-env[runtime_key] = third
-local chunk = assert(loadstring(main:sub(start_pos, end_pos - 1)))
-setfenv(chunk, env)()
-local schedule = env[name].schedule_after
+function MakeActionHandle() next_id = next_id + 1; return next_id end
+function ExecuteInGameThreadWithDelay(handle, delay, callback)
+    assert(type(handle) == "number" and type(delay) == "number")
+    queue[handle] = callback
+end
+function IsValidDelayedActionHandle(handle) return not cancelled[handle] end
+IsDelayedActionActive = IsValidDelayedActionHandle
+local ctx = {
+    runtime = third, actions = {}, config = { PREFIX = "[test]" },
+    logging = { log = function() end },
+    common = {
+        unwrap_hook_value = function(value) return value end,
+        uobject_is_valid = function(value) return value ~= nil and value:IsValid() end,
+        try_call = function(callback)
+            local ok, value = pcall(callback)
+            if ok then return value end
+            return nil, value
+        end,
+    },
+}
+assert(loadfile(scripts .. "/actions.lua"))()(ctx)
+local schedule = (ctx.layout or ctx.actions.api).schedule_after
 local fired = 0
-local handle = schedule("session", 1, function() fired = fired + 1 end, { valid = true })
+local handle = schedule("session", 1, function() fired = fired + 1 end, { IsValid = function() return true end })
 assert(third.actions[handle])
 queue[handle]()
 assert(fired == 1 and third.actions[handle] == nil)

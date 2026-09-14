@@ -72,6 +72,10 @@ The archive includes metadata for both **Zero Company Mod Manager** and **Zero C
 
 4. Start the game and open the Character Databank. **Import** and **Share** should appear alongside the native Databank actions.
 
+The layout above shows the entry point and format helpers. Install the entire
+`Scripts` directory, including all accompanying runtime modules; copying only
+`main.lua` is no longer sufficient.
+
 ## Using Character Share
 
 ### Export a character
@@ -171,9 +175,13 @@ When reporting a crash or reproducible import problem, include the relevant `UE4
 ```text
 README.md
 CHANGELOG.md
-Character Share/
+src/Character Share/
 ├── Scripts/
-│   ├── main.lua
+│   ├── main.lua (bootstrap)
+│   ├── actions.lua, hook_registry.lua, logging.lua
+│   ├── popup.lua, popup_dispatch.lua, databank_ui.lua
+│   ├── import_workflow.lua, overwrite_workflow.lua
+│   ├── ... (other runtime modules)
 │   ├── character.lua
 │   ├── codebook.lua
 │   ├── codec.lua
@@ -185,6 +193,9 @@ Character Share/
 ```
 
 The repository documentation stays outside the installable `Character Share/` directory so release archives contain only runtime files and manager metadata.
+
+See [Script architecture](docs/architecture.md) for the full module map,
+shared-state and reload rules, and regression-test commands.
 
 ## Contributing
 
