@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.0.5]
+
+### Changed
+
+- Format release notes as single-line, category-prefixed plain-text entries when
+  publishing to Nexus Mods, while retaining the readable Keep a Changelog source.
+
+### Fixed
+
+- Reuse the retained, attached Import button, glyph, and row when re-entering a
+  persistent Databank page. CommonUI can stop exposing dynamically inserted
+  children through WidgetTree traversal after reactivation; attempting another
+  clone/wrap pass progressively hid the Databank controls.
+
 ## [1.0.4]
 
 ### Fixed

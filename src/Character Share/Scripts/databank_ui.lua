@@ -161,22 +161,48 @@ return function(ctx)
         page,
         page_state
     )
-        -- Lua state is recreated by reloads while the page WidgetTree can survive.
-        -- Rebind the attached control and its glyph before considering a new clone.
-        local attached = ctx.layout.find_widget(page, "CharacterShare_ImportButton")
+        -- Re-entry keeps the same runtime page and its dynamically inserted row,
+        -- but WidgetTree traversal does not always rediscover those children after
+        -- CommonUI reactivates the screen. Prefer the live references retained in
+        -- this page's install state. Named lookup remains the hot-reload fallback
+        -- when Lua state has been rebuilt while the WidgetTree survived.
+        local attached = page_state.importButton
+        local adoption_source = "retained page state"
+
+        if not ctx.layout.uobject_is_valid(attached)
+            or select(1, ctx.common.try_call(function() return attached:GetParent() end)) == nil then
+            attached = ctx.layout.find_widget(page, "CharacterShare_ImportButton")
+            adoption_source = "existing WidgetTree"
+        end
+
         if ctx.layout.uobject_is_valid(attached)
             and select(1, ctx.common.try_call(function() return attached:GetParent() end)) ~= nil then
-            local canvas = ctx.layout.find_widget(page, "CharacterShare_ImportGlyphCanvas")
+            local canvas = page_state.importCanvas
+            if not ctx.layout.uobject_is_valid(canvas)
+                or select(1, ctx.common.try_call(function() return canvas:GetParent() end)) == nil then
+                canvas = ctx.layout.find_widget(page, "CharacterShare_ImportGlyphCanvas")
+            end
             if not ctx.layout.uobject_is_valid(canvas) then canvas = nil end
+
+            local row = page_state.importRow
+            if not ctx.layout.uobject_is_valid(row)
+                or select(1, ctx.common.try_call(function() return row:GetParent() end)) == nil then
+                row = ctx.layout.find_widget(page, "CharacterShare_CreateImportRow")
+            end
+
             register_attached_databank_button(attached, "databank_import", "IMPORT", canvas)
             ctx.layout.set_clone_label(attached, "")
             ctx.layout.hide_single_clone_image(attached)
             page_state.importInstalled = true
-            page_state.importRow = ctx.layout.find_widget(page, "CharacterShare_CreateImportRow")
-            ctx.logging.log("Databank IMPORT adopted from existing WidgetTree.")
+            page_state.importButton = attached
+            page_state.importCanvas = canvas
+            page_state.importRow = row
+            ctx.logging.log("Databank IMPORT adopted from " .. adoption_source .. ".")
             return true
         end
         page_state.importInstalled = false
+        page_state.importButton = nil
+        page_state.importCanvas = nil
 
         local create_new =
             select(
@@ -305,6 +331,8 @@ return function(ctx)
                 .register_databank_hover_hooks()
 
             page_state.importInstalled = true
+            page_state.importButton = import_button
+            page_state.importCanvas = import_canvas
             page_state.importRow = row
 
             ctx.logging.log(
@@ -1118,6 +1146,8 @@ return function(ctx)
         if page_state == nil then
             page_state = {
                 importInstalled = false,
+                importButton = nil,
+                importCanvas = nil,
                 shareInstalled = false,
                 shareButton = nil,
                 importRow = nil,

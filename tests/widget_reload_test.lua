@@ -56,6 +56,20 @@ for _ = 1, 2 do
         assert(ctx.databank_ui.install_import_button(object("page"), state))
         assert(ctx.state.databank_ui_state.buttons.button.action == "databank_import")
         assert(ctx.state.databank_ui_state.buttons.button.iconCanvas == glyph)
+        assert(state.importButton == button and state.importCanvas == glyph)
+
+        -- CommonUI re-entry can keep the inserted IMPORT row attached while a
+        -- fresh WidgetTree traversal no longer returns its dynamic children. The
+        -- retained per-page references must prevent a second clone/wrap pass.
+        ctx.layout.find_widget = function() return nil end
+        assert(ctx.databank_ui.install_import_button(object("page"), state))
+        assert(state.importButton == button and state.importCanvas == glyph)
+
+        ctx.layout.find_widget = function(_, name)
+            if name:find("Button", 1, true) then return button end
+            if name:find("Canvas", 1, true) then return glyph end
+            return overlay
+        end
         assert(ctx.databank_ui.install_share_button(object("page"), state))
         assert(ctx.state.databank_ui_state.buttons.button.action == "databank_share")
         assert(state.importInstalled and state.shareInstalled and state.shareButton == button)

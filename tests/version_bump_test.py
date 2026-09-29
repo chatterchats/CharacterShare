@@ -22,6 +22,15 @@ class VersionBumpTest(unittest.TestCase):
                 target = scratch / source.relative_to(ROOT)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source, target)
+            changelog_path = scratch / "CHANGELOG.md"
+            changelog = changelog_path.read_text()
+            unreleased = "## [Unreleased]\n"
+            self.assertEqual(changelog.count(unreleased), 1)
+            changelog_path.write_text(changelog.replace(
+                unreleased,
+                unreleased + "\n### Fixed\n\n- Exercise the version bump fixture.\n",
+                1,
+            ))
             before = json.loads((scratch / relative / "modinfo.json").read_text())["version"]
             major, minor, patch = map(int, before.split("."))
             expected = f"{major}.{minor}.{patch + 1}"

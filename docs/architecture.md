@@ -56,6 +56,7 @@ luajit tests/widget_reload_test.lua "src/Character Share/Scripts"
 luajit tests/module_bootstrap_test.lua "src/Character Share/Scripts"
 luajit tests/duplicate_identity_test.lua "src/Character Share/Scripts"
 python3 tests/version_bump_test.py
+python3 tests/nexus_changelog_test.py
 ```
 
 The bootstrap test runs the production modules with mocked engine boundaries.

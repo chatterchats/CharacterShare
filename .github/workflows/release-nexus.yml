@@ -30,6 +30,7 @@ jobs:
           import re
           import uuid
           from pathlib import Path
+          from scripts.nexus_changelog import nexus_changelog
 
           metadata_files = (
               Path("src/Character Share/modinfo.json"),
@@ -56,14 +57,10 @@ jobs:
               raise SystemExit(f"Version must use #.#.# format, got {version!r}")
 
           changelog_text = Path("CHANGELOG.md").read_text(encoding="utf-8")
-          section = re.search(
-              rf"^## \[{re.escape(version)}\][^\n]*\n(?P<body>.*?)(?=^## \[|\Z)",
-              changelog_text,
-              flags=re.MULTILINE | re.DOTALL,
-          )
-          if section is None or not section.group("body").strip():
-              raise SystemExit(f"CHANGELOG.md has no non-empty [{version}] section")
-          changelog = section.group("body").strip()
+          try:
+              changelog = nexus_changelog(changelog_text, version)
+          except ValueError as error:
+              raise SystemExit(str(error)) from error
 
           delimiter = f"CHANGELOG_{uuid.uuid4().hex}"
           with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
