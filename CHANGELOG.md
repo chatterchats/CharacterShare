@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.0.4]
+
+### Fixed
+
+- Validate the Databank master and its class before class inspection during
+  entry discovery. A non-nil invalid UObject wrapper could previously reach
+  `GetClass` and cause a native access violation while the screen was opening.
+- Reuse the retained, attached Share button when re-entering a persistent
+  Databank page, even when a fresh WidgetTree traversal cannot rediscover the
+  dynamically appended control. This prevents duplicate Share buttons.
+
 ## [1.0.3]
 
 ### Added

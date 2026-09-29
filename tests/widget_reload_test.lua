@@ -59,6 +59,13 @@ for _ = 1, 2 do
         assert(ctx.databank_ui.install_share_button(object("page"), state))
         assert(ctx.state.databank_ui_state.buttons.button.action == "databank_share")
         assert(state.importInstalled and state.shareInstalled and state.shareButton == button)
+
+        -- CommonUI re-entry can keep the appended SHARE control attached while a
+        -- fresh WidgetTree traversal no longer returns it. The retained per-page
+        -- reference must win so re-entry never reaches the clone/append path.
+        ctx.layout.find_widget = function() return nil end
+        assert(ctx.databank_ui.install_share_button(object("page"), state))
+        assert(state.shareButton == button)
     end
 end
 print("widget reload adoption tests passed")

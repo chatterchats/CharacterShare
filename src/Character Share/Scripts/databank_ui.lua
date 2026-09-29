@@ -771,7 +771,20 @@ return function(ctx)
         page,
         page_state
     )
-        local attached = ctx.layout.find_widget(page, "CharacterShare_ShareButton")
+        -- Re-entry keeps the same runtime page and its dynamically appended
+        -- children, but WidgetTree traversal does not always rediscover those
+        -- children after CommonUI reactivates the screen. Prefer the live button
+        -- retained in this page's install state; the named lookup remains the
+        -- reload/adoption fallback when Lua state has been rebuilt.
+        local attached = page_state.shareButton
+        local adoption_source = "retained page state"
+
+        if not ctx.layout.uobject_is_valid(attached)
+            or select(1, ctx.common.try_call(function() return attached:GetParent() end)) == nil then
+            attached = ctx.layout.find_widget(page, "CharacterShare_ShareButton")
+            adoption_source = "existing WidgetTree"
+        end
+
         if ctx.layout.uobject_is_valid(attached)
             and select(1, ctx.common.try_call(function() return attached:GetParent() end)) ~= nil then
             register_attached_databank_button(attached, "databank_share", "SHARE")
@@ -779,7 +792,7 @@ return function(ctx)
             page_state.shareInstalled = true
             page_state.shareButton = attached
             page_state.shareSpacer = ctx.layout.find_widget(page, "CharacterShare_ShareSpacer")
-            ctx.logging.log("Databank SHARE adopted from existing WidgetTree.")
+            ctx.logging.log("Databank SHARE adopted from " .. adoption_source .. ".")
             return true
         end
         page_state.shareInstalled = false

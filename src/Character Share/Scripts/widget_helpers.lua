@@ -25,11 +25,28 @@ return function(ctx)
             return nil
         end
 
+        -- FindFirstOf can return a non-nil wrapper with a null UObject while
+        -- the Databank is still opening. GetClass dereferences that pointer;
+        -- pcall cannot catch the resulting native access violation.
+        local object_valid, validity_err = ctx.common.try_call(function()
+            return object:IsValid()
+        end)
+        if validity_err ~= nil or object_valid ~= true then
+            return nil
+        end
+
         local class_object, class_err = ctx.common.try_call(function()
             return object:GetClass()
         end)
 
         if class_err ~= nil or class_object == nil then
+            return nil
+        end
+
+        local class_valid, class_validity_err = ctx.common.try_call(function()
+            return class_object:IsValid()
+        end)
+        if class_validity_err ~= nil or class_valid ~= true then
             return nil
         end
 
