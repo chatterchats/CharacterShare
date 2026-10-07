@@ -1,213 +1,275 @@
 # Character Share
 
-Character Share is a UE4SS mod for **STAR WARS Zero Company** that adds native-looking **Share** and **Import** actions to the Character Databank.
+[![Nexus Mods](https://img.shields.io/badge/Nexus%20Mods-Character%20Share-d98f40)](https://www.nexusmods.com/starwarszerocompany/mods/176)
+[![UE4SS](https://img.shields.io/badge/framework-UE4SS-6f42c1)](https://github.com/UE4SS-RE/RE-UE4SS)
 
-The Import action is a compact icon button beside **Create New**. Its Tabler-inspired file-import mark is drawn from native UMG primitives, and its action row cooperates with Enhanced Databank's compact **Create Folder** button when both mods are enabled.
+Character Share is a UE4SS Lua mod for **Star Wars: Zero Company** that adds
+native-looking **Share** and **Import** actions to the Character Databank, so
+players can exchange custom characters as compact `ZC1-...` codes without
+opening the Character Creator.
 
-It lets players exchange custom characters with compact `ZC1-...` share codes without opening the Character Creator to complete an import. Character Share supports both Custom Characters and Astromechs, duplicate-safe overwrite/rename flows, and raw fallbacks for mod-added customization assets.
+Imports go through the game's native Databank create and overwrite flow. A
+code is fully validated before anything is changed, and invalid codes are
+rejected instead of being applied partially.
 
 ## Features
 
-- **Share directly from the Character Databank** — select a saved character and use **Share** to generate a copyable `ZC1-...` code.
-- **Import directly from the Databank** — use **Import**, paste a share code, and let Character Share validate and create the character through the game's native Databank flow.
-- **Duplicate handling** — same-name imports can be **Overwritten**, **Renamed**, or **Cancelled** when safe. Overwrite is only offered when there is a compatible same-type target.
-- **Custom Character and Astromech support** — both Databank character types are supported end to end.
-- **Astromech naming support** — Astromechs are first-name-only. Character Share ignores any encoded last-name value for Astromech imports.
-- **Modded asset support** — known in-game assets use compact dictionary references; unknown/mod-added assets can fall back to their raw `PrimaryAssetId`.
-- **Corruption and compatibility checks** — ZC1 codes include revision checks and CRC-32 validation before any character mutation occurs.
-
-## Requirements
-
-- **STAR WARS Zero Company**
-- **UE4SS** with the delayed game-thread action API
-  (`ExecuteInGameThreadWithDelay`, `MakeActionHandle`, `CancelDelayedAction`,
-  `IsValidDelayedActionHandle`, `IsDelayedActionActive`, and `UnregisterHook`)
-
-Hot reload retains both hook IDs and cancels owned actions during teardown.
-When available, `ClearAllDelayedActions()` also clears this mod's leftover
-actions at startup; set `CharacterShareClearDelayedActionsOnReload = false`
-before reloading to disable that optional sweep. Tracked-handle cancellation
-still runs. Existing Import/Share controls are adopted on reinitialization.
-A same-state reload resumes a previously known open Databank; after a full Lua
-state restart, reopen the Databank through its menu to rebind the controls.
-Restart the game once when upgrading from versions that did not retain hook
-IDs; those older registrations cannot be recovered by the new registry.
-
-Character Share has been tested on the Steam release with these game builds:
-
-| Steam build | Notes |
-| --- | --- |
-| [25134257](https://steamdb.info/app/2075800/patchnotes/) | Tested |
-| 24874058 | Tested |
-
-Steam is the currently tested launcher. EA App compatibility has not been declared.
-
-## Installation
-
-### Mod manager
-
-The archive includes metadata for both **Zero Company Mod Manager** and **Zero Company Mod Command**. Install the archive normally through the manager you use.
-
-### Manual installation
-
-1. Install UE4SS for STAR WARS Zero Company.
-2. Extract the `Character Share` folder into the game's UE4SS `Mods` directory.
-3. Confirm the resulting layout includes:
-
-   ```text
-   ue4ss/
-   └── Mods/
-       └── Character Share/
-           ├── Scripts/
-           │   ├── main.lua
-           │   ├── character.lua
-           │   ├── codebook.lua
-           │   ├── codec.lua
-           │   ├── libdeflate.lua
-           │   └── ui.lua
-           ├── enabled.txt
-           ├── modinfo.json
-           └── zcom-mod.json
-   ```
-
-4. Start the game and open the Character Databank. **Import** and **Share** should appear alongside the native Databank actions.
-
-The layout above shows the entry point and format helpers. Install the entire
-`Scripts` directory, including all accompanying runtime modules; copying only
-`main.lua` is no longer sufficient.
+- **Share from the Databank:** select a saved character and use **Share** to
+  get a copyable `ZC1-...` code.
+- **Import from the Databank:** use **Import**, paste a code, and Character
+  Share validates it and creates the character.
+- **Duplicate handling:** same-name imports can be **Overwritten**,
+  **Renamed** or **Cancelled** when safe. Overwrite is only offered when there
+  is a compatible target of the same type.
+- **Custom Characters and Astromechs**, end to end.
+- **Mod-added assets:** known game assets use compact references; unknown or
+  mod-added assets fall back to their raw `PrimaryAssetId`.
+- **Corruption checks:** codes carry revision checks and a CRC-32 checksum,
+  verified before any character is changed.
+- A compact, native-styled **Import** icon button beside **Create New** that
+  shares its row with Enhanced Databank's **Create Folder** button.
 
 ## Using Character Share
 
-### Export a character
+### Share a character
 
 1. Open the **Character Databank**.
 2. Select the Custom Character or Astromech you want to share.
 3. Choose **Share**.
-4. Copy the generated `ZC1-...` code and send it to the recipient.
+4. Copy the `ZC1-...` code and send it to the recipient.
 
 ### Import a character
 
 1. Open the **Character Databank**.
 2. Choose **Import**.
-3. Paste the complete `ZC1-...` code.
-4. Choose **Import** to validate it.
-5. If the name is unique, Character Share creates the character automatically. If the name already exists, Character Share may offer **Overwrite**, **Rename**, or **Cancel** depending on the available safe targets.
+3. Paste the complete `ZC1-...` code and choose **Import**.
+4. If the name is unique, the character is created. If it already exists,
+   Character Share offers **Overwrite**, **Rename** or **Cancel**, depending on
+   which targets are safe.
 
-Character Share validates the code before entering the native create/overwrite stage. Invalid, truncated, incompatible, or unresolved payloads are rejected instead of being applied partially.
+### Astromechs
 
-## Astromechs
+Astromechs have a first name only. Any last name in a code is ignored when
+importing an Astromech, including non-empty values from older or malformed
+sources. Duplicate matching and renaming use the single displayed name.
 
-Astromechs are treated as a first-name-only character type. Their `last` name field is always ignored during import, including when a code contains a non-empty value from an older or malformed source.
+### Modded assets
 
-Duplicate matching and rename behavior use the Astromech's single displayed name.
+The frozen ZC1 codebook holds the customization options from the normal
+creator and an unlock-all option sweep, stored as compact table-local
+indexes. A `CustomizationPartDefinition` outside those tables is sent as its
+raw `PrimaryAssetId` instead of being rejected.
 
-## Modded assets
+**The recipient must have the mod that provides a raw asset installed.**
+Character Share sends the asset's identifier, not another mod's files. If the
+asset can't be resolved, the import fails safely before anything is created
+or saved.
 
-Character Share distinguishes between compact, known assets and raw fallback assets.
-
-### Known in-game assets
-
-The frozen ZC1 codebook contains the in-game customization options gathered from the normal creator and the unlock-all option sweep. These assets are represented by compact table-local indexes.
-
-### Raw mod-added assets
-
-If a character uses a `CustomizationPartDefinition` that is not part of the frozen ZC1 tables, Character Share can encode the raw `PrimaryAssetId` instead of rejecting the character.
-
-**The recipient must also have the mod or asset that provides that raw customization asset installed.** Character Share transfers the asset identifier; it does not package or distribute another mod's files.
-
-If the asset cannot be resolved on the recipient's installation, the import fails safely before native creation or save is confirmed.
-
-## ZC1 compatibility
+### ZC1 code format
 
 `ZC1-...` is the frozen share-code format for the initial release.
 
-- Wire revision: **1**
-- Codebook revision: **1**
-- Known slot tags: **121**
-- Palette table: **700** assets
-- Outfit table: **745** assets
-- Appearance table: **503** assets
-- Meta table: **64** assets
+| Item | Value |
+| --- | ---: |
+| Wire revision | 1 |
+| Codebook revision | 1 |
+| Known slot tags | 121 |
+| Palette table | 700 assets |
+| Outfit table | 745 assets |
+| Appearance table | 503 assets |
+| Meta table | 64 assets |
 
-The ZC1 tag order, slot-to-table mapping, table order, and table-local asset IDs are frozen. Existing entries must not be reordered, removed, repurposed, or appended after the public compatibility baseline is established.
+The tag order, slot-to-table mapping, table order and table-local asset IDs
+are frozen: existing entries must never be reordered, removed, repurposed or
+appended. Assets added later use the raw fallback; any incompatible change
+needs a new code generation. Pre-release codes from before the freeze are not
+covered by this guarantee.
 
-Future assets that are not in ZC1 use the raw asset fallback. A future format generation is required for any incompatible wire/schema or compact-table redesign.
+## Requirements
 
-Pre-release codes created before the final ZC1 freeze are not part of the public compatibility guarantee.
+- **Star Wars: Zero Company**
+- **UE4SS** for Zero Company, with the delayed game-thread action API
+  (`ExecuteInGameThreadWithDelay`, `MakeActionHandle`, `CancelDelayedAction`,
+  `IsValidDelayedActionHandle`, `IsDelayedActionActive` and `UnregisterHook`)
 
-## Debug hotkeys
-
-Normal use does not require keyboard shortcuts. Three support/debug shortcuts remain available but are **disabled by default**.
-
-Open the UE4SS console (Default: ~ or F10) and run:
-
-```text
-zcs_debug_hotkeys on
-```
-
-Available shortcuts while enabled:
-
-| Shortcut | Action |
+| Steam build | Status |
 | --- | --- |
-| `Ctrl+Shift+F7` | Export the selected character as one-line raw JSON for debugging/inspection |
-| `Ctrl+Shift+F8` | Export the selected character as a ZC1 share code |
-| `Ctrl+Shift+F9` | Open the Importdialog |
+| [25134257](https://steamdb.info/app/2075800/patchnotes/) | Tested |
+| 24874058 | Tested |
 
-Use `zcs_debug_hotkeys off` to disable them again, or `zcs_debug_hotkeys status` to check the current state. Running `zcs_debug_hotkeys` with no argument toggles the setting.
+Steam is the tested launcher; EA App compatibility has not been declared.
+Later builds may work but are unverified until tested.
 
-The raw JSON export is a debugging aid only. Normal imports accept ZC1 share codes.
+## Installation
+
+Download the release ZIP from
+[Nexus Mods](https://www.nexusmods.com/starwarszerocompany/mods/176), not
+GitHub's source-code archive. The ZIP keeps `Character Share` as its
+top-level folder and includes metadata for both mod managers below.
+
+### With a mod manager
+
+- **[Zero Mod Manager](https://github.com/stellamarislabs/zero-mod-manager)**
+  (formerly ZCOM Mod Manager): open **Install**, drop in the ZIP, then
+  confirm Character Share is enabled under **Mods**.
+- **[Zero Company Mod Command](https://github.com/EnvianMods/ZeroCompanyModCommand)**:
+  drag the ZIP into the **Hangar Bay** and check that it's enabled.
+
+### By hand
+
+1. Install UE4SS for Star Wars: Zero Company.
+2. Extract the `Character Share` folder into
+   `SWZeroCompany/Binaries/Win64/ue4ss/Mods/`.
+3. Check that `ue4ss/Mods/Character Share/Scripts/main.lua` exists. Install
+   the whole `Scripts` folder; `main.lua` alone is not enough.
+4. If your UE4SS setup ignores the packaged `enabled.txt`, add
+   `Character Share : 1` to `ue4ss/Mods/mods.txt`.
+5. Start the game and open the Character Databank: **Import** and **Share**
+   appear beside the native actions.
+
+### Updating and uninstalling
+
+Close the game, then install the new ZIP the same way (by hand, copy it over
+the old folder). To uninstall, disable or remove it in your mod manager, or
+delete the `Character Share` folder. Characters you imported stay in your
+Databank.
+
+## Compatibility
+
+- **[Enhanced Databank](https://www.nexusmods.com/starwarszerocompany/mods/209):**
+  designed to work together. **Create New**, compact **Import** and compact
+  **Create Folder** share one action row, and **Move** and **Share** share the
+  selected-character row.
 
 ## Troubleshooting
 
-If an import fails, Character Share reports the validation or staging reason
-in-game and writes additional detail to both `UE4SS.log` and the dedicated
-`character_share.log` beside the installed mod. The dedicated log includes UTC
-timestamps, session generations, and workflow transitions for crash correlation.
+If an import fails, Character Share shows the reason in game and writes
+details to `UE4SS.log` and to `character_share.log` beside the installed mod
+(UTC timestamps, session generations and workflow steps).
 
-Common cases include:
+| Message | Meaning |
+| --- | --- |
+| Checksum mismatch | The code was corrupted or cut off while copying. |
+| Unsupported wire/codebook revision | The code is from an incompatible format revision. |
+| Missing raw asset | The code uses a mod-added asset that isn't installed. |
+| Unknown non-empty slot | The code has a future or modded slot this game can't safely stage. |
 
-- **Checksum mismatch** — the share code was corrupted or truncated while copying.
-- **Unsupported wire/codebook revision** — the code is from an incompatible format revision.
-- **Missing raw asset** — the code references a mod-added asset that is not installed or available locally.
-- **Unknown non-empty slot** — the code contains a future/modded slot the current game/editor cannot safely stage.
+### Debug hotkeys
 
-When reporting a crash or reproducible import problem, include the relevant
-`character_share.log` and `UE4SS.log`, the share code if it is safe to share,
-and the game build/mod setup needed to reproduce it.
+Disabled by default. Open the UE4SS console (`~` or `F10` by default) and run
+`zcs_debug_hotkeys on` (`off`, `status`, or no argument to toggle).
+
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl+Shift+F7` | Export the selected character as one-line raw JSON (debugging only) |
+| `Ctrl+Shift+F8` | Export the selected character as a ZC1 code |
+| `Ctrl+Shift+F9` | Open the Import dialog |
+
+### Reporting a bug
+
+Open an [issue](https://github.com/chatterchats/CharacterShare/issues) with:
+
+- the game build and UE4SS version;
+- other Databank or customization mods installed;
+- the steps to reproduce it;
+- the share code, if it's safe to share; and
+- `character_share.log` and `UE4SS.log`.
+
+For codebook problems, include the slot tag and the exact
+`CustomizationPartDefinition` asset ID when possible.
 
 ## Repository layout
 
 ```text
-README.md
-CHANGELOG.md
-src/Character Share/
-├── Scripts/
-│   ├── main.lua (bootstrap)
-│   ├── actions.lua, hook_registry.lua, logging.lua
-│   ├── popup.lua, popup_dispatch.lua, databank_ui.lua
-│   ├── import_workflow.lua, overwrite_workflow.lua
-│   ├── ... (other runtime modules)
-│   ├── character.lua
-│   ├── codebook.lua
-│   ├── codec.lua
-│   ├── libdeflate.lua
-│   └── ui.lua
-├── enabled.txt
-├── modinfo.json
-└── zcom-mod.json
+.
+├── .github/workflows/release-nexus.yml   # manual Nexus release
+├── CHANGELOG.md
+├── README.md
+├── docs/
+│   ├── architecture.md                   # module map, reload rules, local checks
+│   └── nexus/description.bbcode          # mod page description
+├── scripts/
+│   ├── bump_version.py                   # version bump + changelog promotion
+│   └── nexus_changelog.py                # a release's notes as Nexus text
+├── src/Character Share/                  # the distributable mod folder
+│   ├── Scripts/                          # main.lua, codec, codebook, workflows, UI
+│   ├── enabled.txt
+│   ├── modinfo.json                      # Zero Company Mod Command
+│   └── zcom-mod.json                     # Zero Mod Manager
+└── tests/                                # LuaJIT and Python tests, ZC1 fixtures
 ```
 
-The repository documentation stays outside the installable `Character Share/` directory so release archives contain only runtime files and manager metadata.
+`src/Character Share` is the distributable folder; there is no build or
+bundle step. Documentation stays outside it so the release ZIP holds only
+runtime files and manager metadata. See
+[Script architecture](docs/architecture.md) for the module map and shared
+state.
 
-See [Script architecture](docs/architecture.md) for the full module map,
-shared-state and reload rules, and regression-test commands.
+## Development
+
+1. Clone the repository and copy or link `src/Character Share` into the
+   game's `ue4ss/Mods` folder.
+2. Run the tests from the repository root:
+
+   ```bash
+   for t in tests/*_test.lua; do luajit "$t" "src/Character Share/Scripts" || break; done
+   for t in tests/*_test.py; do python3 "$t" || break; done
+   ```
+
+3. Test in game: the mod works on generated Blueprint classes and live UMG
+   widget trees that the tests only fake.
+
+**Hot reload.** The mod keeps its hook IDs and cancels its own delayed
+actions on teardown. When available, `ClearAllDelayedActions()` also clears
+leftovers at startup; set `CharacterShareClearDelayedActionsOnReload = false`
+before reloading to skip that sweep. Existing Import/Share controls are
+adopted again. A same-state reload resumes an open Databank; after a full Lua
+restart, reopen the Databank to rebind the controls. Restart the game once
+when upgrading from versions that didn't keep hook IDs.
+
+## Releasing
+
+The manually run **Release to Nexus Mods** workflow publishes a release; build
+a local ZIP for package-only checks.
+
+1. Add release notes under `## [Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md).
+2. Bump the version with `patch`, `minor` or `major`:
+
+   ```bash
+   ./scripts/bump_version.py patch
+   ```
+
+3. Run the tests, then check the package with a mod manager and a clean
+   manual install.
+4. Run **Release to Nexus Mods** from the **Actions** tab. It needs the
+   `NEXUSMODS_API_KEY` repository secret.
+
+The workflow:
+
+- requires `modinfo.json` and `zcom-mod.json` to hold the same `#.#.#`
+  version;
+- reads that version's notes from `CHANGELOG.md`;
+- packages `src/Character Share` as `Character Share V#.#.#.zip`; and
+- uploads it to Nexus as `Character Share v#.#.#.zip`, finding the mod and its
+  single active file through the API (exactly one active file is required).
 
 ## Contributing
 
-Bug reports and compatibility findings are welcome. For customization/codebook issues, include the affected slot tag and exact `CustomizationPartDefinition` asset ID when possible.
+Bug reports, compatibility findings and focused pull requests are welcome
+through [Issues](https://github.com/chatterchats/CharacterShare/issues) and
+[Pull Requests](https://github.com/chatterchats/CharacterShare/pulls).
 
-ZC1 is intentionally frozen. Contributions must not reorder or modify its existing compatibility tables. New unsupported assets should continue to use the raw fallback unless a future share-code generation is introduced.
+ZC1 is intentionally frozen: never reorder or modify its existing
+compatibility tables. New unsupported assets should keep using the raw
+fallback unless a new share-code generation is introduced.
 
-## Changelog
+## Support
 
-See [CHANGELOG.md](CHANGELOG.md) for release history.
+- Downloads: [Nexus Mods](https://www.nexusmods.com/starwarszerocompany/mods/176)
+- Changes: [`CHANGELOG.md`](CHANGELOG.md)
+- Bugs and requests: [GitHub Issues](https://github.com/chatterchats/CharacterShare/issues)
+
+## License
+
+This repository does not currently include a license. Unless one is added,
+the source remains subject to applicable copyright law.
