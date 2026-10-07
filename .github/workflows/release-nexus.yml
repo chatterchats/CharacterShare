@@ -38,16 +38,12 @@ jobs:
           )
           versions = {}
           for metadata_file in metadata_files:
-              if not metadata_file.is_file():
-                  continue
               with metadata_file.open(encoding="utf-8") as stream:
                   version = json.load(stream).get("version")
               if not isinstance(version, str) or not version.strip():
                   raise SystemExit(f"Missing version in {metadata_file}")
               versions[metadata_file] = version.strip()
 
-          if not versions:
-              raise SystemExit("Neither modinfo.json nor zcom-mod.json exists")
           if len(set(versions.values())) != 1:
               details = ", ".join(f"{path}: {version}" for path, version in versions.items())
               raise SystemExit(f"Metadata versions do not match: {details}")
@@ -55,6 +51,11 @@ jobs:
           version = next(iter(versions.values()))
           if not re.fullmatch(r"\d+\.\d+\.\d+", version):
               raise SystemExit(f"Version must use #.#.# format, got {version!r}")
+
+          main_text = Path("src/Character Share/Scripts/main.lua").read_text(encoding="utf-8")
+          main_match = re.search(r'^local VERSION = "([^"]+)"$', main_text, re.MULTILINE)
+          if main_match is None or main_match.group(1) != version:
+              raise SystemExit("main.lua VERSION does not match package metadata")
 
           changelog_text = Path("CHANGELOG.md").read_text(encoding="utf-8")
           try:
@@ -141,14 +142,14 @@ jobs:
         run: |
           mkdir -p dist
           (cd src && zip -r "../dist/${PACKAGE_NAME}" "Character Share")
-          ln "dist/${PACKAGE_NAME}" "Character Share.zip"
+          ln "dist/${PACKAGE_NAME}" "Character Share v${{ steps.release.outputs.version }}.zip"
 
       - name: Upload to Nexus Mods
         uses: Nexus-Mods/upload-action@c96019556046053aa26044b44396cd38929daf23
         with:
           api_key: ${{ secrets.NEXUSMODS_API_KEY }}
           file_id: ${{ steps.nexus.outputs.file_id }}
-          filename: Character Share.zip
+          filename: Character Share v${{ steps.release.outputs.version }}.zip
           version: ${{ steps.release.outputs.version }}
           display_name: Character Share
           mod_id: ${{ steps.nexus.outputs.mod_id }}
