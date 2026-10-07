@@ -1,0 +1,97 @@
+[b]Character Share[/b] lets you share custom characters directly from the in-game Character Databank.
+Select one of your custom characters, press [b]SHARE[/b], and the mod generates a compact code you can copy and send to another player. They paste that code into the Databank's new [b]IMPORT[/b] button and get the same character, without manually copying every customization option.
+Everything happens inside Zero Company's existing Databank UI. There's no external character editor and no save-file editing.
+
+[heading]Features[/heading]
+[list]
+[*][b]Share from the Databank[/b]: generate a copyable [b]ZC1-...[/b] code for any custom character.[/*]
+[*][b]Import in-game[/b]: paste a code and the character is created through the game's normal Databank flow.[/*]
+[*][b]Duplicate handling[/b]: overwrite the existing character or rename the imported copy.[/*]
+[*][b]Humanoid and Astromech support[/b]: both Databank character types work end to end.[/*]
+[*][b]Compact codes[/b]: typically 250–600 characters.[/*]
+[*][b]Modded customization support[/b]: assets added by other mods can be shared too.[/*]
+[*][b]Safe validation[/b]: codes are checked before anything is created.[/*]
+[/list]
+
+[heading]Using Character Share[/heading]
+[b]Sharing a character[/b]
+Open the [b]Character Databank[/b] and select one of your custom characters. Use the new [b]SHARE[/b] action beside the normal Databank actions, and Character Share displays a [b]ZC1-...[/b] code for that character.
+Copy the full code and send it however you like: Discord, a Nexus post, a text file and so on.
+
+[b]Importing a character[/b]
+Open the [b]Character Databank[/b] and select [b]IMPORT[/b], beside [b]Create New[/b]. Paste the complete [b]ZC1-...[/b] code and continue.
+Character Share validates and stages the character before creating it through the game's normal character systems.
+If a character with that name already exists, choose [b]OVERWRITE[/b] to replace it or [b]RENAME[/b] to give the imported copy a different name.
+
+[heading]Requirements[/heading]
+[list]
+[*][b]Star Wars Zero Company[/b][/*]
+[*][url=https://www.nexusmods.com/starwarszerocompany/mods/9]UE4SS for Star Wars Zero Company[/url][/*]
+[/list]
+Character Share has been tested on the Steam release, game builds [b]24874058[/b] and [b]25134257[/b]. Other builds may work but should be treated as unverified. EA App compatibility has not been tested.
+
+[heading]Installation[/heading]
+[b]Mod manager[/b]
+Character Share includes metadata for the community mod managers:
+[list]
+[*][url=https://www.nexusmods.com/starwarszerocompany/mods/29]ZCOM Mod Manager[/url][/*]
+[*][url=https://www.nexusmods.com/starwarszerocompany/mods/121]Zero Company Mod Command[/url][/*]
+[/list]
+Install the downloaded ZIP through either one and make sure Character Share is enabled.
+
+[b]Manual installation[/b]
+Make sure UE4SS is installed and working, close the game, then extract the [b]Character Share[/b] folder into:
+[code]SWZeroCompany/Binaries/Win64/ue4ss/Mods/[/code]
+The finished installation should contain:
+[code]ue4ss/Mods/Character Share/Scripts/main.lua[/code]
+The package includes [b]enabled.txt[/b]. If your UE4SS setup doesn't pick it up, add this line to [b]ue4ss/Mods/mods.txt[/b]:
+[code]Character Share : 1[/code]
+
+[heading]Compatibility[/heading]
+[b]Modded customization assets[/b]
+The share-code format doesn't need to know about every mod that will ever add character customization, but [b]the mod itself is not included in the code[/b].
+If you share a character that uses a hairstyle, armor piece, color, species option or other asset from another mod, [b]the recipient must have that mod installed too[/b]. If the asset is missing on their game, Character Share rejects the import rather than knowingly creating a character with a missing reference.
+
+[b]Enhanced Databank[/b]
+Character Share is designed to work alongside [url=https://www.nexusmods.com/starwarszerocompany/mods/209]Enhanced Databank[/url]: [b]Import[/b] and [b]Create Folder[/b] share one action row beside [b]Create New[/b], and [b]Share[/b] and [b]Move[/b] sit together beside the selected character's native actions.
+
+[b]Other mods[/b]
+Character Share works through the game's Character Databank and native character creation and save systems rather than splicing characters into the game's .sav files, so it should coexist with most unrelated UE4SS mods. A mod that heavily replaces or restructures the Character Databank UI could conflict with its buttons.
+
+[heading]Troubleshooting[/heading]
+Character Share writes diagnostic information to [b]character_share.log[/b] in its mod folder. [b]UE4SS.log[/b] remains the primary startup and crash log.
+When reporting a problem, please include:
+[list]
+[*]Your game build[/*]
+[*]Your UE4SS version[/*]
+[*]Your other installed mods, especially ones that add customization options[/*]
+[*]Steps to reproduce the problem, and the share code if it's safe to share[/*]
+[*][code]UE4SS.log[/code][/*]
+[*][code]character_share.log[/code][/*]
+[/list]
+
+[heading]Why I Made This[/heading]
+The idea came from seeing [url=https://www.nexusmods.com/starwarszerocompany/mods/92][b]Zero Company Operator Sharer Tool[/b][/url] by CityscapeBlues. Their tool reads the Character Databank save and can export and import operators as files.
+I wanted to see how far that idea could be taken [b]inside the game itself[/b]: select a character, press Share, send someone a code, and let them import it through the normal Databank UI without closing Zero Company or touching save files.
+
+[heading]Source Code and Issue Reports[/heading]
+Source, technical documentation and issue tracking are available on [url=https://github.com/chatterchats/CharacterShare]GitHub[/url]. You can also post in the Bugs tab here on Nexus.
+
+[heading]Check Out My Other Mods[/heading]
+[list]
+[*][url=https://www.nexusmods.com/starwarszerocompany/mods/154]Fast Resonance[/url] — Speeds up the long Resonance presentations (Resonance Transfer, Shared Suffering and Unnatural Resilience) with a per-ability on/off switch and speed setting.[/*]
+[*][url=https://www.nexusmods.com/starwarszerocompany/mods/209]Enhanced Databank[/url] — Folders for your custom characters and Astromechs: create, rename and delete them, and move characters between them, all through the game's own hidden pool system.[/*]
+[*][url=https://www.nexusmods.com/starwarszerocompany/mods/314]Colors+[/url] — Pick any color, not just the preset swatches: a custom color picker with live preview for clothing, armor, hair, skin, makeup, tattoos and blaster paint.[/*]
+[/list]
+
+[heading]Shout-outs[/heading]
+[list]
+[*][url=https://forums.nexusmods.com/profile/1661783-gugarion/]Gugarion[/url] and the [url=https://discord.gg/qpBkjjKSRp][b]ZCom Modding Discord[/b][/url] — for the shared knowledge, testing, discussion and help that make increasingly strange Zero Company modding ideas possible. Extra thanks to Gugarion for getting the share codes actually shareable: without his help they'd be over 2K characters long instead of 250–600. He's a G.[/*]
+[*]The [url=https://github.com/UE4SS-RE/RE-UE4SS][b]UE4SS-RE team[/b][/url] — for UE4SS itself and the runtime scripting, object inspection, hooking and UI tooling that make mods like this possible.[/*]
+[*][url=https://www.nexusmods.com/profile/Vercadi]Vercadi[/url] — for creating and maintaining the [url=https://www.nexusmods.com/starwarszerocompany/mods/9]UE4SS build for Star Wars Zero Company[/url] that Character Share runs on.[/*]
+[*][url=https://www.nexusmods.com/profile/GoryBark]GoryBark[/url] — for extensive idea sound-boarding, design input, feature suggestions and feedback throughout Character Share's development.[/*]
+[*][url=https://www.nexusmods.com/profile/CityscapeBlues]CityscapeBlues[/url] — creator of the [b]Zero Company Operator Sharer Tool[/b], which gave me the idea to explore an in-game character-sharing workflow.[/*]
+[/list]
+
+[heading]Icon Attribution[/heading]
+The Import glyph follows the visual language of [url=https://tabler.io/icons]Tabler Icons[/url], an MIT-licensed open-source icon set. The live controls are drawn from native UMG primitives rather than loading external icon textures at runtime.
