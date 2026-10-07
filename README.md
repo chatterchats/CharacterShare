@@ -2,6 +2,7 @@
 
 [![Nexus Mods](https://img.shields.io/badge/Nexus%20Mods-Character%20Share-d98f40)](https://www.nexusmods.com/starwarszerocompany/mods/176)
 [![UE4SS](https://img.shields.io/badge/framework-UE4SS-6f42c1)](https://github.com/UE4SS-RE/RE-UE4SS)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2f7d4f)](LICENSE)
 
 Character Share is a UE4SS Lua mod for **Star Wars: Zero Company** that adds
 native-looking **Share** and **Import** actions to the Character Databank, so
@@ -249,7 +250,8 @@ The workflow:
 - requires `modinfo.json` and `zcom-mod.json` to hold the same `#.#.#`
   version;
 - reads that version's notes from `CHANGELOG.md`;
-- packages `src/Character Share` as `Character Share V#.#.#.zip`; and
+- packages `src/Character Share`, with `LICENSE` added, as `Character Share V#.#.#.zip`;
+  and
 - uploads it to Nexus as `Character Share v#.#.#.zip`, finding the mod and its
   single active file through the API (exactly one active file is required).
 
@@ -271,5 +273,4 @@ fallback unless a new share-code generation is introduced.
 
 ## License
 
-This repository does not currently include a license. Unless one is added,
-the source remains subject to applicable copyright law.
+[MIT](LICENSE) © 2026 Chatter Chats. The release ZIP includes the license.
