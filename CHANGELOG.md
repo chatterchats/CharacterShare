@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Mark game builds 25898267 and 26445778 as tested in the mod manager
+  metadata, replacing the older builds.
+
 ## [1.0.5]
 
 ### Changed
