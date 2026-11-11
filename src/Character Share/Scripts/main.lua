@@ -1,6 +1,6 @@
--- Character Share v1.0.5
+-- Character Share v1.0.6
 -- Bootstrap only: each factory receives a fresh context for this mod instance.
-local VERSION = "1.0.5"
+local VERSION = "1.0.6"
 local source = debug.getinfo(1, "S").source:gsub("^@", "")
 local directory = assert(source:match("^(.*[/\\])"), "Scripts directory unavailable")
 package.path = directory .. "?.lua;" .. package.path
