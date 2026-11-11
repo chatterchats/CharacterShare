@@ -95,8 +95,8 @@ covered by this guarantee.
 
 | Steam build | Status |
 | --- | --- |
-| [25134257](https://steamdb.info/app/2075800/patchnotes/) | Tested |
-| 24874058 | Tested |
+| [26445778](https://steamdb.info/app/2075800/patchnotes/) | Tested |
+| 25898267 | Tested |
 
 Steam is the tested launcher; EA App compatibility has not been declared.
 Later builds may work but are unverified until tested.
