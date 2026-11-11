@@ -1,0 +1,17 @@
+Generated using the built-in image_gen tool.
+
+Final export: proportionally resized and center-cropped to exactly 1300x372
+pixels. No stretching. Saved as character-share-banner.png.
+
+Use case: ads-marketing.
+Asset type: Nexus Mods header/banner for the Star Wars: Zero Company mod Character Share.
+Primary request: generate a finished banner in the established matching series design of the three supplied banners. Follow the monochromatic cyan Enhanced Databank and Skip Space Travel references especially closely.
+Input images: Image 1 (Enhanced Databank banner) is the principal STYLE AND LAYOUT REFERENCE; Image 2 (Skip Space Travel banner) is a secondary STYLE AND LAYOUT REFERENCE; Image 3 (Colors+ banner) is a secondary STYLE REFERENCE. These are references only. Create the Character Share version, closely matching the existing background, typography, composition, and HUD framing.
+Output: exactly 1300x372 pixels, very wide landscape, aspect ratio 3.494623656:1. Full-bleed finished artwork, no letterboxing or external margins.
+Scene/backdrop: near-black deep navy with subtle cloudy blue texture; restrained cyan technical linework; faint concentric radar rings centered in the frame; fine central crosshair; symmetrical angular HUD borders coming inward from all four corners; short side ticks; thin horizontal title panel closely matching the references.
+Subject: a single crisp cyan character-sharing emblem centered above the title at approximately x=650 y=90, roughly 95 pixels high. The emblem is a simple rounded head-and-shoulders character silhouette with a small recognizable three-node share symbol attached to its lower-right side: three circular nodes joined by two diagonal line segments. Use subtle luminous cyan beveled edges and restrained metallic depth, like the reference folder and skip icons. Clean unified readable silhouette, no face details. Fit into the same upper-center radar-arc region as the reference icons.
+Text (verbatim): "CHARACTER SHARE". Exactly these two words, on one single straight horizontal line centered across the middle title panel. No other text.
+Typography: the same tall bold condensed uppercase sans-serif as the references, cool silver-white vertical metallic gradient, crisp clean edges, understated texture and subtle dark depth. Title approximately 80 pixels high at the target dimensions, centered at about y=195, with generous side margins. Match the reference baseline and title-panel alignment.
+Color palette: midnight navy, black, cool silver-white, luminous cyan only.
+Constraints: closely match the established sleek symmetrical sci-fi banner series. Accurate legible text and icon. Preserve cyan framing, central alignment, and generous negative space. No subtitle, tagline, Star Wars logo, Nexus logo, badges, watermark, extra words, rainbow colors, character illustration, spaceship scene, or promotional mockup.
+

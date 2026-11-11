@@ -1,0 +1,18 @@
+Generated using the built-in image_gen tool.
+
+Final export: proportionally resized and center-cropped to exactly 1920x1080
+pixels. No stretching. Saved as character-share-main-image.png.
+
+Use case: ads-marketing.
+Asset type: polished 1920x1080 Nexus Mods main image / thumbnail for the Star Wars: Zero Company mod Character Share.
+Primary request: create the matching 16:9 main-image version of the supplied Character Share banner, following the established thumbnail composition of the supplied Enhanced Databank and Skip Space Travel images.
+Input images: Image 1 is the Character Share banner, the primary DESIGN REFERENCE for the correct title, character-sharing emblem, typography, cyan palette, and HUD linework. Image 2 is the Enhanced Databank main image, the principal COMPOSITION REFERENCE for translating the banner series into 1920x1080. Image 3 is the Skip Space Travel main image, a secondary STYLE AND COMPOSITION REFERENCE. Create a new matching asset; do not include the references as insets or mockups.
+Output framing: exactly 1920x1080 pixels, landscape 16:9, full-bleed finished artwork with no letterboxing or external margins.
+Scene/backdrop: near-black deep navy with subtly cloudy blue texture. Match the symmetrical fine cyan HUD framing, angular borders coming inward from the four corners, restrained side ticks, faint large concentric radar circles, and delicate central crosshair from the references.
+Subject: reproduce the exact cyan character-sharing emblem from Image 1: simple rounded head-and-shoulders character silhouette, with a three-node share symbol at the lower-right of the silhouette, three circular nodes connected by two diagonal segments. Preserve this unified readable icon's design, luminous cyan beveled edges, subtle metallic depth, and restrained glow. Center it prominently in the upper-middle region enclosed by the radar arc, at approximately x=960 y=360. Icon height approximately 240 pixels. No facial features or extra decorative objects.
+Text (verbatim): "CHARACTER SHARE". Exactly these two words in one single straight horizontal line centered below the emblem, at approximately y=625. No other text.
+Typography: exactly match Image 1's tall bold condensed uppercase sans-serif, cool silver-white vertical metallic gradient, crisp edges, understated texture and dark depth. Title spans approximately 72 to 76 percent of the image width with generous side margins and reads clearly as a small thumbnail. Match Image 2's title-panel positioning and visual hierarchy, with the thin framing rails at roughly y=410 and y=745.
+Composition: use the larger 16:9 canvas naturally. Keep the elegant symmetrical negative space above and below, faint radar circles filling the canvas, and all emblem and title content inside the safe area. Do not stretch the wide banner into a taller format.
+Color palette: midnight navy, black, cool silver-white, luminous cyan only.
+Constraints: closely match Character Share's banner and the established sci-fi mod thumbnail series. Symmetrical, polished, restrained. Accurate text and clean icon. No subtitle, tagline, Nexus logo, Star Wars logo, badges, watermark, rainbow colors, character illustration, spaceship scene, extra words, or promotional mockup.
+
