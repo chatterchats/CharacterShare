@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- The release ZIP is now named `CharacterShare-X.Y.Z.zip`; its contents are unchanged.
+
 ## [1.0.6]
 
 ### Changed

@@ -1,0 +1,1 @@
+Adds Share and Import to the Character Databank, so you can trade custom characters and astromechs as compact ZC1 codes without opening the Character Creator.

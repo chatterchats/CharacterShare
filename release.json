@@ -1,0 +1,10 @@
+{
+  "name": "CharacterShare",
+  "title": "Character Share",
+  "version": "1.0.6",
+  "nexusModId": 176,
+  "zipLayout": "folder",
+  "shipped": [
+    {"folder": "Character Share", "kind": "ue4ss"}
+  ]
+}

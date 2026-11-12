@@ -1,6 +1,6 @@
 -- The first entry check may precede construction of the Databank master.
 -- UE4SS returns an invalid UObject wrapper here, not necessarily nil.
-local scripts = assert(arg[1], "pass the Character Share Scripts directory")
+local scripts = arg[1] or "src/Character Share/Scripts"
 local ctx = { common = {}, popup = {}, widget_helpers = {}, layout = {}, logging = {} }
 assert(loadfile(scripts .. "/common.lua"))()(ctx)
 assert(loadfile(scripts .. "/widget_helpers.lua"))()(ctx)

@@ -1,5 +1,5 @@
--- Run: luajit tests/duplicate_identity_test.lua "src/Character Share/Scripts"
-local scripts = assert(arg[1])
+-- Run from the repo root: make test T=duplicate_identity_test (luajit tests/duplicate_identity_test.lua [Scripts dir] also works)
+local scripts = arg[1] or "src/Character Share/Scripts"
 local function wrap(value) return { get = function() return value end } end
 local function object(path)
     return {

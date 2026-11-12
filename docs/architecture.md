@@ -48,16 +48,8 @@ Blueprint or WidgetTree construction.
 
 ## Local checks
 
-Run from the repository root:
-
-```sh
-luajit tests/reload_runtime_test.lua "src/Character Share/Scripts"
-luajit tests/widget_reload_test.lua "src/Character Share/Scripts"
-luajit tests/module_bootstrap_test.lua "src/Character Share/Scripts"
-luajit tests/duplicate_identity_test.lua "src/Character Share/Scripts"
-python3 tests/version_bump_test.py
-python3 tests/nexus_changelog_test.py
-```
+`make test` runs every test from the repository root; `make test T=widget_reload_test`
+runs one. Each Lua test also takes the Scripts directory as its first argument.
 
 The bootstrap test runs the production modules with mocked engine boundaries.
 Under LuaJIT it stubs only the codec among the existing helper modules because

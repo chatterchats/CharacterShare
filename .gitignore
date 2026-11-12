@@ -1,0 +1,11 @@
+/dist/
+*.log
+__pycache__/
+*.py[cod]
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+
+# Written by MXM while the mod is linked into the game
+values.lua
